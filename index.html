@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Ad Copy Generator | BizLeap Technologies</title>
+  <meta name="description" content="Generate high-converting ad copies for Facebook, Instagram, Google, and LinkedIn with BizLeap Technologies' AI-powered tool.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css?v=2.0.2">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <div class="dashboard-wrapper">
+    <!-- Sidebar Navigation (Dashboard Style) -->
+    <aside class="sidebar">
+      <div class="brand">
+        <!-- BizLeap Custom Logo SVG -->
+        <svg class="brand-logo" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#2563eb" />
+              <stop offset="100%" stop-color="#3b82f6" />
+            </linearGradient>
+            <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#f97316" />
+              <stop offset="100%" stop-color="#ea580c" />
+            </linearGradient>
+          </defs>
+          <!-- Stylized B and L with a Leap chevron -->
+          <rect x="10" y="10" width="30" height="40" rx="6" fill="url(#logoGrad)" />
+          <path d="M22 20h8a5 5 0 0 1 0 10h-8v-10z M22 30h9a5 5 0 0 1 0 10h-9v-10z" fill="#ffffff" />
+          <path d="M32 12 l15 -6 l0 15 z" fill="url(#accentGrad)" />
+          <path d="M42 20 l12 -8 l2 12 z" fill="url(#accentGrad)" opacity="0.8" />
+          <!-- Agency Name -->
+          <text x="55" y="34" font-family="'Outfit', sans-serif" font-weight="800" font-size="20" fill="#0f172a">BizLeap</text>
+          <text x="55" y="48" font-family="'Inter', sans-serif" font-weight="600" font-size="10" fill="#f97316" letter-spacing="1.5">TECHNOLOGIES</text>
+        </svg>
+      </div>
+
+      <nav class="nav-menu">
+        <a href="#" class="nav-item active" id="btn-nav-generator">
+          <i data-lucide="sparkles"></i>
+          <span>Ad Copy Generator</span>
+        </a>
+        <a href="#" class="nav-item" id="btn-nav-history">
+          <i data-lucide="history"></i>
+          <span>Saved & History</span>
+        </a>
+        <a href="#" class="nav-item" id="btn-nav-analytics">
+          <i data-lucide="bar-chart-2"></i>
+          <span>Campaign Stats</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="location-badge">
+          <i data-lucide="map-pin"></i>
+          <span>Nagpur, India</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Dashboard Area -->
+    <main class="main-content">
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="header-titles">
+          <h1>AI Ad Copy Generator</h1>
+          <p class="subtitle">Generate high-converting ad copies using advanced copywriting models</p>
+        </div>
+        <div class="user-profile">
+          <div class="avatar">BL</div>
+          <div class="profile-info">
+            <span class="profile-name">BizLeap Agency</span>
+            <span class="profile-role">Campaign Manager</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dashboard Layout Grid -->
+      <div class="dashboard-grid">
+        
+        <!-- Left Column: Generator Form -->
+        <section class="card form-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i data-lucide="sliders" class="header-icon"></i>
+              <h2>Campaign Parameters</h2>
+            </div>
+            <span class="badge">V2.0 Active</span>
+          </div>
+
+          <!-- Presets Section -->
+          <div class="presets-section">
+            <span class="section-label">Quick Test Presets (Nagpur Businesses):</span>
+            <div class="preset-buttons">
+              <button type="button" class="preset-btn" id="preset-realestate">
+                <i data-lucide="building-2"></i> Nagpur Real Estate
+              </button>
+              <button type="button" class="preset-btn" id="preset-cafe">
+                <i data-lucide="coffee"></i> Orange Bistro Cafe
+              </button>
+              <button type="button" class="preset-btn" id="preset-seo">
+                <i data-lucide="trending-up"></i> BizLeap SEO Service
+              </button>
+            </div>
+          </div>
+
+          <form id="ad-copy-form" class="generator-form">
+            <div class="form-grid">
+              
+              <!-- Business Name -->
+              <div class="form-group">
+                <label for="business-name">Business Name</label>
+                <div class="input-wrapper">
+                  <i data-lucide="briefcase"></i>
+                  <input type="text" id="business-name" placeholder="e.g., Apex Heights" required>
+                </div>
+              </div>
+
+              <!-- Industry Type -->
+              <div class="form-group">
+                <label for="industry-type">Industry Type</label>
+                <div class="input-wrapper">
+                  <i data-lucide="tag"></i>
+                  <select id="industry-type" required>
+                    <option value="" disabled selected>Select industry...</option>
+                    <option value="Real Estate">Real Estate</option>
+                    <option value="Food & Beverage">Food & Beverage</option>
+                    <option value="Digital Marketing / IT">Digital Marketing / IT</option>
+                    <option value="Education & Coaching">Education & Coaching</option>
+                    <option value="Healthcare & Wellness">Healthcare & Wellness</option>
+                    <option value="Retail & E-commerce">Retail & E-commerce</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Product/Service Name -->
+              <div class="form-group col-span-2">
+                <label for="product-name">Product / Service Name</label>
+                <div class="input-wrapper">
+                  <i data-lucide="shopping-bag"></i>
+                  <input type="text" id="product-name" placeholder="e.g., Premium 2 & 3 BHK Apartments" required>
+                </div>
+              </div>
+
+              <!-- Target Audience -->
+              <div class="form-group col-span-2">
+                <label for="target-audience">Target Audience</label>
+                <div class="input-wrapper">
+                  <i data-lucide="users" class="textarea-icon"></i>
+                  <textarea id="target-audience" rows="2" placeholder="e.g., Families looking for homes in Nagpur, Real Estate Investors" required></textarea>
+                </div>
+              </div>
+
+              <!-- Campaign Goal -->
+              <div class="form-group">
+                <label for="campaign-goal">Campaign Goal</label>
+                <div class="input-wrapper">
+                  <i data-lucide="target"></i>
+                  <select id="campaign-goal" required>
+                    <option value="" disabled selected>Select goal...</option>
+                    <option value="Lead Generation">Lead Generation</option>
+                    <option value="Brand Awareness">Brand Awareness</option>
+                    <option value="Website Traffic">Website Traffic</option>
+                    <option value="Sales / Conversion">Sales / Conversion</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Call-to-Action Preference -->
+              <div class="form-group">
+                <label for="cta-preference">CTA Preference</label>
+                <div class="input-wrapper">
+                  <i data-lucide="mouse-pointer"></i>
+                  <select id="cta-preference" required>
+                    <option value="" disabled selected>Select CTA...</option>
+                    <option value="Book Site Visit">Book Site Visit</option>
+                    <option value="Get Free Quote">Get Free Quote</option>
+                    <option value="Learn More">Learn More</option>
+                    <option value="Claim Offer">Claim Offer</option>
+                    <option value="Sign Up Now">Sign Up Now</option>
+                    <option value="Order Now">Order Now</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Ad Platform Selection -->
+              <div class="form-group col-span-2">
+                <label>Select Ad Platform</label>
+                <div class="platform-selector">
+                  <input type="radio" name="ad-platform" id="platform-facebook" value="Facebook" checked>
+                  <label for="platform-facebook" class="platform-pill">
+                    <i data-lucide="facebook" class="icon-fb"></i>
+                    <span>Facebook</span>
+                  </label>
+
+                  <input type="radio" name="ad-platform" id="platform-instagram" value="Instagram">
+                  <label for="platform-instagram" class="platform-pill">
+                    <i data-lucide="instagram" class="icon-ig"></i>
+                    <span>Instagram</span>
+                  </label>
+
+                  <input type="radio" name="ad-platform" id="platform-google" value="Google Ads">
+                  <label for="platform-google" class="platform-pill">
+                    <i data-lucide="search" class="icon-google"></i>
+                    <span>Google Ads</span>
+                  </label>
+
+                  <input type="radio" name="ad-platform" id="platform-linkedin" value="LinkedIn">
+                  <label for="platform-linkedin" class="platform-pill">
+                    <i data-lucide="linkedin" class="icon-li"></i>
+                    <span>LinkedIn</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Tone of Ad Selection -->
+              <div class="form-group col-span-2">
+                <label>Tone of Ad</label>
+                <div class="tone-selector">
+                  <input type="radio" name="ad-tone" id="tone-professional" value="Professional" checked>
+                  <label for="tone-professional" class="tone-pill">Professional</label>
+
+                  <input type="radio" name="ad-tone" id="tone-friendly" value="Friendly">
+                  <label for="tone-friendly" class="tone-pill">Friendly</label>
+
+                  <input type="radio" name="ad-tone" id="tone-promotional" value="Promotional">
+                  <label for="tone-promotional" class="tone-pill">Promotional</label>
+
+                  <input type="radio" name="ad-tone" id="tone-luxury" value="Luxury">
+                  <label for="tone-luxury" class="tone-pill">Luxury</label>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary" id="btn-generate">
+              <i data-lucide="sparkles"></i>
+              <span>Generate Ad Copy</span>
+            </button>
+          </form>
+        </section>
+
+        <!-- Right Column: Output & Visual Preview -->
+        <section class="right-panel">
+          
+          <!-- Loading State Overlay / Skeleton (Hidden initially) -->
+          <div class="loading-state card hidden" id="loading-spinner">
+            <div class="loader-content">
+              <div class="quantum-spinner"></div>
+              <h3 id="loader-status">Analyzing parameters...</h3>
+              <p class="loader-sub">BizLeap AI Copywriter is crafting compelling copy...</p>
+              
+              <!-- Loader Progress Steps -->
+              <div class="loader-steps">
+                <div class="step-item active" id="step-1">
+                  <i data-lucide="check-circle-2"></i>
+                  <span>Analyzing Goal</span>
+                </div>
+                <div class="step-item" id="step-2">
+                  <i data-lucide="circle"></i>
+                  <span>Targeting Audience</span>
+                </div>
+                <div class="step-item" id="step-3">
+                  <i data-lucide="circle"></i>
+                  <span>Structuring Layout</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State (Shown initially) -->
+          <div class="empty-state card" id="empty-state-card">
+            <div class="empty-content">
+              <div class="icon-glow">
+                <i data-lucide="sparkles"></i>
+              </div>
+              <h3>Ready to Generate Copy</h3>
+              <p>Fill out the campaign form details on the left or load one of our optimized Nagpur preset templates to witness high-converting copies instant generation.</p>
+              <button type="button" class="btn btn-secondary" id="btn-load-sample-empty">
+                <i data-lucide="rocket"></i> Load Fast Example
+              </button>
+            </div>
+          </div>
+
+          <!-- Results Section (Hidden initially) -->
+          <div class="results-container hidden" id="results-card">
+            
+            <!-- Output Cards -->
+            <div class="card output-card">
+              <div class="card-header">
+                <div class="card-title-group">
+                  <i data-lucide="file-text" class="header-icon accent-color"></i>
+                  <h2>Generated Copy Outputs</h2>
+                </div>
+                <button class="btn btn-sm btn-outline copy-all-btn" id="btn-copy-all">
+                  <i data-lucide="copy"></i> Copy All
+                </button>
+              </div>
+
+              <!-- Output Breakdown -->
+              <div class="outputs-stack">
+                <!-- Headline Output -->
+                <div class="output-block">
+                  <div class="output-block-header">
+                    <span class="label">Headline / Hook</span>
+                    <div class="output-actions">
+                      <span class="char-count" id="headline-count">0 ch</span>
+                      <button class="copy-field-btn" data-target="headline-text" title="Copy Headline">
+                        <i data-lucide="copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="textarea-container">
+                    <textarea id="headline-text" rows="2" readonly></textarea>
+                  </div>
+                </div>
+
+                <!-- Primary Ad Copy Output -->
+                <div class="output-block">
+                  <div class="output-block-header">
+                    <span class="label">Primary Body Copy</span>
+                    <div class="output-actions">
+                      <span class="char-count" id="body-count">0 ch</span>
+                      <button class="copy-field-btn" data-target="body-text" title="Copy Body Copy">
+                        <i data-lucide="copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="textarea-container">
+                    <textarea id="body-text" rows="6" readonly></textarea>
+                  </div>
+                </div>
+
+                <!-- CTA Output -->
+                <div class="output-block">
+                  <div class="output-block-header">
+                    <span class="label">Call-to-Action</span>
+                    <div class="output-actions">
+                      <span class="char-count" id="cta-count">0 ch</span>
+                      <button class="copy-field-btn" data-target="cta-text" title="Copy CTA">
+                        <i data-lucide="copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="textarea-container">
+                    <textarea id="cta-text" rows="1" readonly></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Interactive Platform Mockup Section -->
+            <div class="card preview-card">
+              <div class="card-header">
+                <div class="card-title-group">
+                  <i data-lucide="eye" class="header-icon"></i>
+                  <h2>Live Ad Mockup Preview</h2>
+                </div>
+                <span class="badge badge-accent" id="preview-platform-badge">Facebook</span>
+              </div>
+
+              <!-- Mockups Containers -->
+              <div class="preview-stage">
+                
+                <!-- Facebook Mockup -->
+                <div class="mockup-container fb-mockup" id="mockup-facebook">
+                  <div class="mock-header">
+                    <div class="mock-avatar">
+                      <svg viewBox="0 0 40 40" class="mini-logo">
+                        <rect width="40" height="40" rx="8" fill="#2563eb"/>
+                        <text x="12" y="26" font-family="'Outfit', sans-serif" font-weight="bold" font-size="20" fill="white">B</text>
+                      </svg>
+                    </div>
+                    <div class="mock-header-info">
+                      <span class="mock-profile-name" id="fb-mock-biz-name">BizLeap Client</span>
+                      <span class="mock-meta">Sponsored · <i data-lucide="globe"></i></span>
+                    </div>
+                    <button class="mock-more-btn"><i data-lucide="more-horizontal"></i></button>
+                  </div>
+                  <div class="mock-body">
+                    <p class="mock-text" id="fb-mock-body">This is where the ad body text will appear. Create copies via generator to see preview...</p>
+                    <div class="mock-media-box">
+                      <div class="mock-img-placeholder">
+                        <i data-lucide="image"></i>
+                        <span id="fb-mock-img-text">Real Estate Campaign Visual</span>
+                      </div>
+                      <div class="mock-link-bar">
+                        <div class="link-meta">
+                          <span class="link-url" id="fb-mock-url">WWW.BIZLEAP.IN</span>
+                          <span class="link-headline" id="fb-mock-headline">Engaging headline goes here</span>
+                        </div>
+                        <button class="fb-cta-btn" id="fb-mock-cta">Learn More</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mock-footer">
+                    <div class="mock-actions">
+                      <span><i data-lucide="thumbs-up"></i> Like</span>
+                      <span><i data-lucide="message-square"></i> Comment</span>
+                      <span><i data-lucide="share-2"></i> Share</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Instagram Mockup -->
+                <div class="mockup-container ig-mockup hidden" id="mockup-instagram">
+                  <div class="mock-header">
+                    <div class="mock-avatar-ig"></div>
+                    <span class="mock-profile-name-ig" id="ig-mock-biz-name">bizleap_client</span>
+                    <button class="mock-more-btn"><i data-lucide="more-horizontal"></i></button>
+                  </div>
+                  <div class="mock-media-box-ig">
+                    <div class="mock-img-placeholder">
+                      <i data-lucide="instagram"></i>
+                      <span id="ig-mock-img-text">Instagram Campaign Media</span>
+                    </div>
+                  </div>
+                  <div class="mock-cta-bar-ig">
+                    <span class="ig-headline" id="ig-mock-headline">Headline Highlight</span>
+                    <button class="ig-cta-btn" id="ig-mock-cta">Learn More</button>
+                  </div>
+                  <div class="mock-body-ig">
+                    <div class="ig-interactions">
+                      <i data-lucide="heart"></i>
+                      <i data-lucide="message-circle"></i>
+                      <i data-lucide="send"></i>
+                    </div>
+                    <p class="ig-caption">
+                      <strong id="ig-mock-caption-name">bizleap_client</strong> 
+                      <span id="ig-mock-body">Copywriting text goes here... #marketing #nagpur</span>
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Google Ads Mockup -->
+                <div class="mockup-container google-mockup hidden" id="mockup-google">
+                  <div class="google-header">
+                    <span class="sponsored-tag">Sponsored</span>
+                    <div class="google-url-row">
+                      <span class="google-url-display" id="google-mock-url">https://www.bizleap.in › campaign</span>
+                      <i data-lucide="more-vertical"></i>
+                    </div>
+                    <h3 class="google-headline" id="google-mock-headline">Attractive Title | Nagpur Services | Best Choice</h3>
+                  </div>
+                  <div class="google-body">
+                    <p class="google-desc" id="google-mock-body">Provide your audience with a direct solution. This description area displays high-performing taglines to boost click-through rates.</p>
+                    <div class="google-sitelinks">
+                      <span class="sitelink-item" id="google-mock-cta">➔ Call Action: Learn More</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- LinkedIn Mockup -->
+                <div class="mockup-container li-mockup hidden" id="mockup-linkedin">
+                  <div class="mock-header">
+                    <div class="mock-avatar-li">BL</div>
+                    <div class="mock-header-info">
+                      <div class="mock-profile-row">
+                        <span class="mock-profile-name-li" id="li-mock-biz-name">BizLeap Client</span>
+                        <span class="degree-badge">· 1st</span>
+                      </div>
+                      <span class="mock-meta-li">Nagpur Business Professional</span>
+                      <span class="mock-time-li">Promoted · <i data-lucide="globe"></i></span>
+                    </div>
+                  </div>
+                  <div class="mock-body-li">
+                    <p class="mock-text-li" id="li-mock-body">Professionals look for high value and ROI. Your LinkedIn ad post copy is tailored for executive decision-makers.</p>
+                    <div class="mock-card-li">
+                      <div class="mock-img-placeholder-li">
+                        <i data-lucide="linkedin"></i>
+                        <span id="li-mock-img-text">B2B Creative Asset</span>
+                      </div>
+                      <div class="mock-card-details-li">
+                        <span class="li-card-headline" id="li-mock-headline">LinkedIn Headline</span>
+                        <span class="li-card-sub" id="li-mock-biz-domain">bizleap.in</span>
+                      </div>
+                      <button class="li-cta-btn" id="li-mock-cta">Learn More</button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- App Script JS -->
+  <script src="script.js?v=2.0.2"></script>
+</body>
+</html>
