@@ -132,15 +132,50 @@ document.addEventListener('DOMContentLoaded', () => {
   btnPresetSeo.addEventListener('click', () => applyPreset('seo'));
   btnLoadSampleEmpty.addEventListener('click', () => applyPreset('realestate'));
 
-  // --- Navigation Aesthetic Handling ---
+  // --- Navigation Routing Logic ---
+  const views = {
+    'btn-nav-generator': document.getElementById('generator-view'),
+    'btn-nav-history': document.getElementById('history-view'),
+    'btn-nav-analytics': document.getElementById('stats-view')
+  };
+
   navItems.forEach(item => {
     item.addEventListener('click', (e) => {
       e.preventDefault();
-      if (item.id === 'btn-nav-generator') return; // stay active
       
-      showToast(`Feature coming soon in full production release!`, 'info');
+      // Update nav active state
+      navItems.forEach(nav => nav.classList.remove('active'));
+      item.classList.add('active');
+      
+      // Toggle views
+      Object.keys(views).forEach(navId => {
+        const view = views[navId];
+        if (view) {
+          if (item.id === navId) {
+            view.classList.remove('hidden');
+          } else {
+            view.classList.add('hidden');
+          }
+        }
+      });
+
+      // Load data based on view selection
+      if (item.id === 'btn-nav-history') {
+        loadHistoryData(true);
+      } else if (item.id === 'btn-nav-analytics') {
+        loadCampaignStats(true);
+      }
     });
   });
+
+  // Bind History Filters
+  const historySearch = document.getElementById('history-search');
+  const filterPlatform = document.getElementById('filter-platform');
+  const filterTone = document.getElementById('filter-tone');
+
+  if (historySearch) historySearch.addEventListener('input', () => renderHistoryList(historyData));
+  if (filterPlatform) filterPlatform.addEventListener('change', () => renderHistoryList(historyData));
+  if (filterTone) filterTone.addEventListener('change', () => renderHistoryList(historyData));
 
   locationBadge.addEventListener('click', () => {
     showToast("BizLeap Nagpur HQ - Powered by Gemini AI Agency Tools", "success");
@@ -374,6 +409,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                   const results = generateAdCopyText(params);
                   updateResultsUI(results, platform, bizName);
+                  if (withLoader) {
+                    saveAdToDatabase(params, results);
+                  }
                   showToast("High-converting copy generated successfully!", "success");
                 } catch (err) {
                   handleGenerationError(err);
@@ -557,6 +595,345 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 300);
     }, 3000);
   }
+
+  // --- Database Persistence & Stats Aggregation API Wrappers ---
+  
+  let historyData = []; // Store raw history locally for real-time client-side search filtering
+
+  function saveAdToDatabase(params, results) {
+    const dataToPost = {
+      business_name: params.bizName,
+      industry_type: params.industry,
+      product_name: params.product,
+      target_audience: params.audience,
+      campaign_goal: params.goal,
+      ad_platform: params.platform,
+      ad_tone: params.tone,
+      headline: results.headline,
+      body_text: results.body,
+      cta: results.cta
+    };
+
+    fetch('/api/history', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(dataToPost)
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("Failed to save generated ad to history database.");
+      }
+      return response.json();
+    })
+    .then(savedAd => {
+      console.log("Successfully saved ad:", savedAd);
+      // Refresh backend datasets silently in the background
+      loadHistoryData(false); 
+      loadCampaignStats(false);
+    })
+    .catch(err => {
+      console.error("Database save error:", err);
+      showToast("Generated successfully but failed to save to database.", "error");
+    });
+  }
+
+  function loadHistoryData(showLoading = true) {
+    const historyList = document.getElementById('history-list');
+    const historyEmpty = document.getElementById('history-empty');
+    
+    if (!historyList) return;
+
+    if (showLoading) {
+      historyList.innerHTML = '<div style="grid-column: span 2; text-align: center; padding: 40px; color: var(--text-muted);"><div class="quantum-spinner" style="margin: 0 auto 20px;"></div>Loading saved campaigns...</div>';
+      if (historyEmpty) historyEmpty.classList.add('hidden');
+    }
+
+    fetch('/api/history')
+      .then(response => {
+        if (!response.ok) throw new Error("Could not load history.");
+        return response.json();
+      })
+      .then(data => {
+        historyData = data;
+        renderHistoryList(historyData);
+      })
+      .catch(err => {
+        console.error("Fetch history failed:", err);
+        if (historyList) historyList.innerHTML = '';
+        if (historyEmpty) historyEmpty.classList.remove('hidden');
+        showToast("Failed to fetch campaign history.", "error");
+      });
+  }
+
+  function createHistoryCardHTML(ad) {
+    const dateStr = new Date(ad.created_at).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    const platformIcons = {
+      Facebook: '<i data-lucide="facebook" class="icon-fb"></i>',
+      Instagram: '<i data-lucide="instagram" class="icon-ig"></i>',
+      'Google Ads': '<i data-lucide="search" class="icon-google"></i>',
+      LinkedIn: '<i data-lucide="linkedin" class="icon-li"></i>'
+    };
+    
+    const iconHtml = platformIcons[ad.ad_platform] || '<i data-lucide="globe"></i>';
+
+    return `
+      <div class="card history-card" data-id="${ad.id}">
+        <div class="history-card-header">
+          <div class="history-card-title">
+            <div class="platform-indicator ${ad.ad_platform.toLowerCase().replace(/\s/g, '')}">
+              ${iconHtml}
+              <span>${ad.ad_platform}</span>
+            </div>
+            <h3>${ad.business_name}</h3>
+          </div>
+          <div class="history-card-actions">
+            <button class="btn-delete-history" data-id="${ad.id}" title="Delete Record">
+              <i data-lucide="trash-2"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="history-card-meta">
+          <span class="meta-tag"><i data-lucide="tag"></i> ${ad.industry_type}</span>
+          <span class="meta-tag"><i data-lucide="target"></i> ${ad.campaign_goal}</span>
+          <span class="meta-tag"><i data-lucide="smile"></i> ${ad.ad_tone}</span>
+          <span class="meta-tag date-tag"><i data-lucide="calendar"></i> ${dateStr}</span>
+        </div>
+
+        <div class="history-card-product">
+          <strong>Product/Service:</strong> ${ad.product_name}
+        </div>
+
+        <div class="history-card-content">
+          <div class="history-content-section">
+            <span class="section-label">Headline</span>
+            <p class="history-headline">${ad.headline}</p>
+          </div>
+          <div class="history-content-section">
+            <span class="section-label">Primary Body Copy</span>
+            <p class="history-body-text">${ad.body_text.replace(/\n/g, '<br>')}</p>
+          </div>
+          <div class="history-content-section">
+            <span class="section-label">CTA</span>
+            <p class="history-cta-text">${ad.cta}</p>
+          </div>
+        </div>
+
+        <!-- Performance Metrics Banner -->
+        <div class="history-metrics-banner">
+          <div class="metric-mini">
+            <span class="metric-mini-label">Spend</span>
+            <span class="metric-mini-val">$${ad.mock_spend}</span>
+          </div>
+          <div class="metric-mini">
+            <span class="metric-mini-label">Impressions</span>
+            <span class="metric-mini-val">${ad.mock_impressions.toLocaleString()}</span>
+          </div>
+          <div class="metric-mini">
+            <span class="metric-mini-label">Avg CTR</span>
+            <span class="metric-mini-val">${ad.mock_ctr}%</span>
+          </div>
+          <div class="metric-mini">
+            <span class="metric-mini-label">Clicks</span>
+            <span class="metric-mini-val">${ad.mock_clicks}</span>
+          </div>
+        </div>
+
+        <div class="history-card-footer">
+          <button class="btn btn-sm btn-outline btn-copy-history" data-id="${ad.id}">
+            <i data-lucide="copy"></i> Copy Ad Copy
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderHistoryList(data) {
+    const historyList = document.getElementById('history-list');
+    const historyEmpty = document.getElementById('history-empty');
+    if (!historyList) return;
+    
+    historyList.innerHTML = '';
+
+    const searchInput = document.getElementById('history-search');
+    const platformFilterSelect = document.getElementById('filter-platform');
+    const toneFilterSelect = document.getElementById('filter-tone');
+
+    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+    const platformFilter = platformFilterSelect ? platformFilterSelect.value : '';
+    const toneFilter = toneFilterSelect ? toneFilterSelect.value : '';
+
+    const filtered = data.filter(ad => {
+      const matchesSearch = 
+        ad.business_name.toLowerCase().includes(searchTerm) ||
+        ad.product_name.toLowerCase().includes(searchTerm) ||
+        ad.campaign_goal.toLowerCase().includes(searchTerm) ||
+        ad.headline.toLowerCase().includes(searchTerm);
+      
+      const matchesPlatform = !platformFilter || ad.ad_platform === platformFilter;
+      const matchesTone = !toneFilter || ad.ad_tone === toneFilter;
+
+      return matchesSearch && matchesPlatform && matchesTone;
+    });
+
+    if (filtered.length === 0) {
+      if (historyEmpty) historyEmpty.classList.remove('hidden');
+    } else {
+      if (historyEmpty) historyEmpty.classList.add('hidden');
+      filtered.forEach(ad => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = createHistoryCardHTML(ad);
+        const cardNode = tempDiv.firstElementChild;
+        
+        // Bind delete button listener
+        const deleteBtn = cardNode.querySelector('.btn-delete-history');
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteHistoryAd(ad.id);
+          });
+        }
+
+        // Bind copy button listener
+        const copyBtn = cardNode.querySelector('.btn-copy-history');
+        if (copyBtn) {
+          copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const fullText = `--- GENERATED AD COPY ---\nHeadline: ${ad.headline}\n\nAd Text:\n${ad.body_text}\n\nCall-To-Action: ${ad.cta}\n--------------------------`;
+            copyToClipboard(fullText)
+              .then(() => showToast("Campaign copy copied to clipboard!", "success"))
+              .catch(() => showToast("Failed to copy", "error"));
+          });
+        }
+
+        historyList.appendChild(cardNode);
+      });
+    }
+
+    safeCreateIcons();
+  }
+
+  let adIdToDelete = null;
+
+  function deleteHistoryAd(id) {
+    adIdToDelete = id;
+    const modal = document.getElementById('delete-confirm-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+    }
+  }
+
+  // Bind custom modal buttons
+  const btnDeleteCancel = document.getElementById('btn-delete-cancel');
+  const btnDeleteConfirm = document.getElementById('btn-delete-confirm');
+  const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+
+  if (btnDeleteCancel) {
+    btnDeleteCancel.addEventListener('click', () => {
+      if (deleteConfirmModal) deleteConfirmModal.classList.add('hidden');
+      adIdToDelete = null;
+    });
+  }
+
+  if (btnDeleteConfirm) {
+    btnDeleteConfirm.addEventListener('click', () => {
+      if (!adIdToDelete) return;
+
+      fetch(`/api/history/${adIdToDelete}`, {
+        method: 'DELETE'
+      })
+        .then(response => {
+          if (!response.ok) throw new Error("Delete failed");
+          return response.json();
+        })
+        .then(res => {
+          showToast("Campaign ad copy deleted successfully.", "success");
+          if (deleteConfirmModal) deleteConfirmModal.classList.add('hidden');
+          adIdToDelete = null;
+          // Reload history data and stats in the background
+          loadHistoryData(false);
+          loadCampaignStats(false);
+        })
+        .catch(err => {
+          console.error("Delete failed:", err);
+          showToast("Failed to delete history item.", "error");
+          if (deleteConfirmModal) deleteConfirmModal.classList.add('hidden');
+          adIdToDelete = null;
+        });
+    });
+  }
+
+  function loadCampaignStats(showLoading = true) {
+    const statsTableBody = document.getElementById('stats-table-body');
+    if (!statsTableBody) return;
+
+    if (showLoading) {
+      statsTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px;"><div class="quantum-spinner" style="margin: 0 auto;"></div></td></tr>';
+    }
+
+    fetch('/api/campaign-stats')
+      .then(response => {
+        if (!response.ok) throw new Error("Could not fetch stats.");
+        return response.json();
+      })
+      .then(data => {
+        // Update KPI values
+        const spendEl = document.getElementById('kpi-spend');
+        const ctrEl = document.getElementById('kpi-ctr');
+        const impressionsEl = document.getElementById('kpi-impressions');
+        const adsEl = document.getElementById('kpi-ads');
+
+        if (spendEl) spendEl.textContent = `$${data.totals.spend.toLocaleString()}`;
+        if (ctrEl) ctrEl.textContent = `${data.totals.ctr}%`;
+        if (impressionsEl) impressionsEl.textContent = data.totals.impressions.toLocaleString();
+        if (adsEl) adsEl.textContent = data.totals.ads_count;
+
+        // Render comparative table
+        statsTableBody.innerHTML = '';
+        if (data.campaigns.length === 0) {
+          statsTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">No campaigns found. Generate copies to view statistics.</td></tr>';
+          return;
+        }
+
+        data.campaigns.forEach(c => {
+          const row = document.createElement('tr');
+          const platformClass = c.platform ? c.platform.toLowerCase().replace(/\s/g, '') : '';
+          row.innerHTML = `
+            <td><strong>${c.name}</strong></td>
+            <td><span class="badge badge-outline" style="background: var(--bg-main); color: var(--text-main); font-weight: 500; font-size: 11px; text-transform: none; letter-spacing: 0;">${c.industry}</span></td>
+            <td><span class="platform-indicator ${platformClass}">${c.platform}</span></td>
+            <td><span class="badge badge-accent" style="font-weight: 500; font-size: 11px;">${c.goal}</span></td>
+            <td class="text-right">${c.ads_count}</td>
+            <td class="text-right"><strong>$${c.spend.toLocaleString()}</strong></td>
+            <td class="text-right">${c.impressions.toLocaleString()}</td>
+            <td class="text-right" style="color: var(--primary); font-weight: 600;">${c.ctr}%</td>
+          `;
+          statsTableBody.appendChild(row);
+        });
+
+        // Set progress bars width based on CTR percentage, up to 100%
+        const ctrProgressBar = document.querySelector('.border-ctr .kpi-progress-bar');
+        if (ctrProgressBar) {
+          const ctrPercent = Math.min((data.totals.ctr / 5) * 100, 100);
+          ctrProgressBar.style.width = `${ctrPercent}%`;
+        }
+      })
+      .catch(err => {
+        console.error("Load stats failed:", err);
+        showToast("Failed to fetch campaign stats.", "error");
+      });
+  }
+
+  // Pre-load data in background
+  loadHistoryData(false);
+  loadCampaignStats(false);
 
   // --- Initial Page Prep ---
   // Apply a nice custom style class to indicate newly loaded content
