@@ -621,43 +621,280 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Database Persistence & Stats Aggregation API Wrappers ---
   
   let historyData = []; // Store raw history locally for real-time client-side search filtering
+  let isBackendConnected = false;
+  let dbModeChecked = false;
 
-  function saveAdToDatabase(params, results) {
-    const dataToPost = {
+  function ensureDbMode() {
+    if (dbModeChecked) return Promise.resolve(isBackendConnected);
+    
+    return fetch(`${API_BASE_URL}/api/history`)
+      .then(res => {
+        isBackendConnected = res.ok;
+        dbModeChecked = true;
+        updateDbModeBadge();
+        return isBackendConnected;
+      })
+      .catch(() => {
+        isBackendConnected = false;
+        dbModeChecked = true;
+        updateDbModeBadge();
+        return false;
+      });
+  }
+
+  function updateDbModeBadge() {
+    const badge = document.getElementById('db-mode-badge');
+    if (!badge) return;
+    
+    if (isBackendConnected) {
+      badge.textContent = "Cloud Sync";
+      badge.className = "badge";
+      badge.style.backgroundColor = "rgba(16, 185, 129, 0.1)"; // soft emerald green background
+      badge.style.color = "#10b981"; // emerald green
+      badge.style.border = "1px solid rgba(16, 185, 129, 0.2)";
+    } else {
+      badge.textContent = "Browser Storage";
+      badge.className = "badge";
+      badge.style.backgroundColor = "rgba(100, 116, 139, 0.1)"; // soft slate grey background
+      badge.style.color = "#64748b"; // slate grey
+      badge.style.border = "1px solid rgba(100, 116, 139, 0.2)";
+    }
+  }
+
+  // --- Browser LocalStorage Database Simulation (Vercel Offline Fallback) ---
+  
+  function getLocalStorageSeeds() {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    
+    return [
+      {
+        id: "seed-1",
+        business_name: "Apex Heights",
+        industry_type: "Real Estate",
+        product_name: "Premium 2 & 3 BHK Smart Apartments",
+        target_audience: "Families and investors looking for premium, well-connected homes in Nagpur (Wardha Road / Manish Nagar).",
+        campaign_goal: "Lead Generation",
+        ad_platform: "Facebook",
+        ad_tone: "Luxury",
+        headline: "Elevated Living: Premium 2 & 3 BHK Smart Apartments by Apex Heights",
+        body_text: "Experience the pinnacle of luxury. \n\nIntroducing Premium 2 & 3 BHK Smart Apartments – the exquisite solution by Apex Heights customized specifically for Families and investors looking for premium, well-connected homes in Nagpur.\n\n✨ Why choose us?\n✔️ Engineered for excellence & reliability\n✔️ Tailored for local Nagpur requirements\n✔️ Crafted exclusively for those who settle for nothing less than perfection\n\nSchedule your private consultation today.",
+        cta: "Book Site Visit",
+        mock_impressions: 4850,
+        mock_ctr: 3.4,
+        mock_clicks: 165,
+        mock_spend: 520,
+        created_at: oneDayAgo.toISOString()
+      },
+      {
+        id: "seed-2",
+        business_name: "The Orange Bistro",
+        industry_type: "Food & Beverage",
+        product_name: "Nagpur's First Orange Mocha & Continental Brunch",
+        target_audience: "Youth, foodies, and families looking for a cozy hangout in Nagpur.",
+        campaign_goal: "Brand Awareness",
+        ad_platform: "Instagram",
+        ad_tone: "Friendly",
+        headline: "The Orange Bistro - Nagpur's First Orange Mocha",
+        body_text: "Hey Nagpur! 👋 Check this out: Nagpur's First Orange Mocha & Continental Brunch is here! ✨\n\nThe Orange Bistro brings you the most cozy & friendly experience yet. Specially made for Youth, foodies, and families looking for a cozy hangout in Nagpur.\n\n💫 What you get:\n✦ Premium local quality in Nagpur\n✦ Attention to detail\n✦ Your new favorite spot in town\n\nDrop by and say hi to the team! 😊",
+        cta: "Claim Offer",
+        mock_impressions: 3420,
+        mock_ctr: 4.2,
+        mock_clicks: 144,
+        mock_spend: 290,
+        created_at: twoDaysAgo.toISOString()
+      },
+      {
+        id: "seed-3",
+        business_name: "BizLeap Digital SEO",
+        industry_type: "Digital Marketing / IT",
+        product_name: "Local SEO Audit & Optimization Packages",
+        target_audience: "Nagpur-based SME owners, doctors, retailers, and builders looking to double online enquiries.",
+        campaign_goal: "Lead Generation",
+        ad_platform: "LinkedIn",
+        ad_tone: "Professional",
+        headline: "B2B Growth Solution: BizLeap Digital SEO launches Local SEO Audit Packages",
+        body_text: "💡 In today's competitive landscape, Nagpur-based SME owners, doctors, retailers, and builders require solutions that drive real business impact.\n\nBizLeap Digital SEO is proud to introduce our latest project: Local SEO Audit & Optimization Packages.\n\nWhy leading Nagpur enterprises trust us:\n📈 High ROI & Proven Efficiency - scale operations seamlessly.\n💼 Dedicated Professional Support - tailored for B2B goals.\n⭐ Trusted by leading professionals across Central India.\n\nReady to take the next step?\n\n🔗 Click below to get free quote today.",
+        cta: "Get Free Quote",
+        mock_impressions: 5900,
+        mock_ctr: 2.3,
+        mock_clicks: 136,
+        mock_spend: 740,
+        created_at: threeDaysAgo.toISOString()
+      }
+    ];
+  }
+
+  function getLocalStorageAds() {
+    const data = localStorage.getItem('bizleap_ads');
+    if (!data) {
+      const initialSeeds = getLocalStorageSeeds();
+      localStorage.setItem('bizleap_ads', JSON.stringify(initialSeeds));
+      return initialSeeds;
+    }
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      const initialSeeds = getLocalStorageSeeds();
+      localStorage.setItem('bizleap_ads', JSON.stringify(initialSeeds));
+      return initialSeeds;
+    }
+  }
+
+  function saveLocalStorageAds(ads) {
+    localStorage.setItem('bizleap_ads', JSON.stringify(ads));
+  }
+
+  function saveLocalStorageAd(params, results) {
+    const mock_impressions = Math.floor(Math.random() * (5000 - 1000 + 1)) + 1000;
+    const mock_ctr = parseFloat((Math.random() * (4.2 - 1.5) + 1.5).toFixed(2));
+    const mock_clicks = Math.round(mock_impressions * (mock_ctr / 100));
+    const mock_spend = Math.floor(Math.random() * (1200 - 150 + 1)) + 150;
+
+    const newAd = {
+      id: "ad-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
       business_name: params.bizName,
-      industry_type: params.industry,
+      industry_type: params.industry || "General",
       product_name: params.product,
-      target_audience: params.audience,
-      campaign_goal: params.goal,
-      ad_platform: params.platform,
-      ad_tone: params.tone,
+      target_audience: params.audience || "General Audience",
+      campaign_goal: params.goal || "Traffic",
+      ad_platform: params.platform || "Facebook",
+      ad_tone: params.tone || "Professional",
       headline: results.headline,
       body_text: results.body,
-      cta: results.cta
+      cta: results.cta || "Learn More",
+      mock_impressions,
+      mock_ctr,
+      mock_clicks,
+      mock_spend,
+      created_at: new Date().toISOString()
     };
 
-    fetch(`${API_BASE_URL}/api/history`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(dataToPost)
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("Failed to save generated ad to history database.");
+    const ads = getLocalStorageAds();
+    ads.unshift(newAd);
+    saveLocalStorageAds(ads);
+    return newAd;
+  }
+
+  function deleteLocalStorageAd(id) {
+    let ads = getLocalStorageAds();
+    ads = ads.filter(ad => ad.id !== id);
+    saveLocalStorageAds(ads);
+  }
+
+  function getLocalStorageCampaignStats() {
+    const ads = getLocalStorageAds();
+    if (ads.length === 0) {
+      return {
+        totals: { ads_count: 0, unique_businesses: 0, spend: 0, impressions: 0, ctr: 0, clicks: 0 },
+        campaigns: []
+      };
+    }
+
+    let totalSpend = 0;
+    let totalImpressions = 0;
+    let totalClicks = 0;
+    const businessSet = new Set();
+    const campaignsMap = {};
+
+    ads.forEach(ad => {
+      totalSpend += ad.mock_spend;
+      totalImpressions += ad.mock_impressions;
+      totalClicks += ad.mock_clicks;
+      
+      const bizKey = ad.business_name.trim();
+      businessSet.add(bizKey);
+
+      if (!campaignsMap[bizKey]) {
+        campaignsMap[bizKey] = {
+          name: bizKey,
+          industry: ad.industry_type,
+          platform: ad.ad_platform,
+          goal: ad.campaign_goal,
+          ads_count: 0,
+          spend: 0,
+          impressions: 0,
+          clicks: 0
+        };
       }
-      return response.json();
-    })
-    .then(savedAd => {
-      console.log("Successfully saved ad:", savedAd);
-      // Refresh backend datasets silently in the background
-      loadHistoryData(false); 
-      loadCampaignStats(false);
-    })
-    .catch(err => {
-      console.error("Database save error:", err);
-      showToast("Generated successfully but failed to save to database.", "error");
+
+      campaignsMap[bizKey].ads_count += 1;
+      campaignsMap[bizKey].spend += ad.mock_spend;
+      campaignsMap[bizKey].impressions += ad.mock_impressions;
+      campaignsMap[bizKey].clicks += ad.mock_clicks;
+    });
+
+    const averageCtr = totalImpressions > 0 
+      ? parseFloat(((totalClicks / totalImpressions) * 100).toFixed(2)) 
+      : 0;
+
+    const campaigns = Object.values(campaignsMap).map(c => {
+      c.ctr = c.impressions > 0 ? parseFloat(((c.clicks / c.impressions) * 100).toFixed(2)) : 0;
+      return c;
+    });
+
+    return {
+      totals: {
+        ads_count: ads.length,
+        unique_businesses: businessSet.size,
+        spend: totalSpend,
+        impressions: totalImpressions,
+        ctr: averageCtr,
+        clicks: totalClicks
+      },
+      campaigns
+    };
+  }
+
+  // --- Hybrid Fetch Wrapper Methods ---
+
+  function saveAdToDatabase(params, results) {
+    ensureDbMode().then(connected => {
+      if (connected) {
+        const dataToPost = {
+          business_name: params.bizName,
+          industry_type: params.industry,
+          product_name: params.product,
+          target_audience: params.audience,
+          campaign_goal: params.goal,
+          ad_platform: params.platform,
+          ad_tone: params.tone,
+          headline: results.headline,
+          body_text: results.body,
+          cta: results.cta
+        };
+
+        fetch(`${API_BASE_URL}/api/history`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(dataToPost)
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Failed to save generated ad to history database.");
+          }
+          return response.json();
+        })
+        .then(savedAd => {
+          console.log("Successfully saved ad (Cloud Sync):", savedAd);
+          loadHistoryData(false); 
+          loadCampaignStats(false);
+        })
+        .catch(err => {
+          console.error("Database save error:", err);
+          showToast("Generated successfully but failed to sync with cloud server.", "error");
+        });
+      } else {
+        // Fallback: Save to LocalStorage
+        saveLocalStorageAd(params, results);
+        console.log("Successfully saved ad (Browser Storage).");
+        loadHistoryData(false); 
+        loadCampaignStats(false);
+      }
     });
   }
 
@@ -672,31 +909,39 @@ document.addEventListener('DOMContentLoaded', () => {
       if (historyEmpty) historyEmpty.classList.add('hidden');
     }
 
-    fetch(`${API_BASE_URL}/api/history`)
-      .then(response => {
-        if (!response.ok) throw new Error("Could not load history.");
-        return response.json();
-      })
-      .then(data => {
-        historyData = data;
+    ensureDbMode().then(connected => {
+      if (connected) {
+        fetch(`${API_BASE_URL}/api/history`)
+          .then(response => {
+            if (!response.ok) throw new Error("Could not load history.");
+            return response.json();
+          })
+          .then(data => {
+            historyData = data;
+            renderHistoryList(historyData);
+          })
+          .catch(err => {
+            console.error("Fetch history failed:", err);
+            historyList.innerHTML = `
+              <div style="grid-column: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; gap: 16px;" class="card">
+                <i data-lucide="alert-triangle" style="width: 48px; height: 48px; color: #f59e0b; background-color: #fffbeb; padding: 10px; border-radius: 50%;"></i>
+                <h3 style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--text-main);">Connection Error</h3>
+                <p style="font-size: 14px; color: var(--text-muted); max-width: 340px;">Unable to establish communication with the database server at <strong>${API_BASE_URL || window.location.origin}</strong>. Please ensure the server is active.</p>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="loadHistoryData(true);">
+                  <i data-lucide="refresh-cw"></i> Retry Connection
+                </button>
+              </div>
+            `;
+            safeCreateIcons();
+            if (historyEmpty) historyEmpty.classList.add('hidden');
+            showToast("Failed to fetch campaign history.", "error");
+          });
+      } else {
+        // Fallback: Read from LocalStorage
+        historyData = getLocalStorageAds();
         renderHistoryList(historyData);
-      })
-      .catch(err => {
-        console.error("Fetch history failed:", err);
-        historyList.innerHTML = `
-          <div style="grid-column: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; gap: 16px;" class="card">
-            <i data-lucide="alert-triangle" style="width: 48px; height: 48px; color: #f59e0b; background-color: #fffbeb; padding: 10px; border-radius: 50%;"></i>
-            <h3 style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--text-main);">Connection Error</h3>
-            <p style="font-size: 14px; color: var(--text-muted); max-width: 340px;">Unable to establish communication with the database server at <strong>${API_BASE_URL || window.location.origin}</strong>. Please ensure the server is active.</p>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="loadHistoryData(true);">
-              <i data-lucide="refresh-cw"></i> Retry Connection
-            </button>
-          </div>
-        `;
-        safeCreateIcons();
-        if (historyEmpty) historyEmpty.classList.add('hidden');
-        showToast("Failed to fetch campaign history.", "error");
-      });
+      }
+    });
   }
 
   function createHistoryCardHTML(ad) {
@@ -878,27 +1123,38 @@ document.addEventListener('DOMContentLoaded', () => {
     btnDeleteConfirm.addEventListener('click', () => {
       if (!adIdToDelete) return;
 
-      fetch(`${API_BASE_URL}/api/history/${adIdToDelete}`, {
-        method: 'DELETE'
-      })
-        .then(response => {
-          if (!response.ok) throw new Error("Delete failed");
-          return response.json();
-        })
-        .then(res => {
+      ensureDbMode().then(connected => {
+        if (connected) {
+          fetch(`${API_BASE_URL}/api/history/${adIdToDelete}`, {
+            method: 'DELETE'
+          })
+            .then(response => {
+              if (!response.ok) throw new Error("Delete failed");
+              return response.json();
+            })
+            .then(res => {
+              showToast("Campaign ad copy deleted successfully.", "success");
+              if (deleteConfirmModal) deleteConfirmModal.classList.add('hidden');
+              adIdToDelete = null;
+              loadHistoryData(false);
+              loadCampaignStats(false);
+            })
+            .catch(err => {
+              console.error("Delete failed:", err);
+              showToast("Failed to delete history item.", "error");
+              if (deleteConfirmModal) deleteConfirmModal.classList.add('hidden');
+              adIdToDelete = null;
+            });
+        } else {
+          // Fallback: Delete from LocalStorage
+          deleteLocalStorageAd(adIdToDelete);
           showToast("Campaign ad copy deleted successfully.", "success");
           if (deleteConfirmModal) deleteConfirmModal.classList.add('hidden');
           adIdToDelete = null;
-          // Reload history data and stats in the background
           loadHistoryData(false);
           loadCampaignStats(false);
-        })
-        .catch(err => {
-          console.error("Delete failed:", err);
-          showToast("Failed to delete history item.", "error");
-          if (deleteConfirmModal) deleteConfirmModal.classList.add('hidden');
-          adIdToDelete = null;
-        });
+        }
+      });
     });
   }
 
@@ -910,74 +1166,91 @@ document.addEventListener('DOMContentLoaded', () => {
       statsTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px;"><div class="quantum-spinner" style="margin: 0 auto;"></div></td></tr>';
     }
 
-    fetch(`${API_BASE_URL}/api/campaign-stats`)
-      .then(response => {
-        if (!response.ok) throw new Error("Could not fetch stats.");
-        return response.json();
-      })
-      .then(data => {
-        // Update KPI values
-        const spendEl = document.getElementById('kpi-spend');
-        const ctrEl = document.getElementById('kpi-ctr');
-        const impressionsEl = document.getElementById('kpi-impressions');
-        const adsEl = document.getElementById('kpi-ads');
-
-        if (spendEl) spendEl.textContent = `$${data.totals.spend.toLocaleString()}`;
-        if (ctrEl) ctrEl.textContent = `${data.totals.ctr}%`;
-        if (impressionsEl) impressionsEl.textContent = data.totals.impressions.toLocaleString();
-        if (adsEl) adsEl.textContent = data.totals.ads_count;
-
-        // Render comparative table
-        statsTableBody.innerHTML = '';
-        if (data.campaigns.length === 0) {
-          statsTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">No campaigns found. Generate copies to view statistics.</td></tr>';
-          return;
-        }
-
-        data.campaigns.forEach(c => {
-          const row = document.createElement('tr');
-          const platformClass = c.platform ? c.platform.toLowerCase().replace(/\s/g, '') : '';
-          row.innerHTML = `
-            <td><strong>${c.name}</strong></td>
-            <td><span class="badge badge-outline" style="background: var(--bg-main); color: var(--text-main); font-weight: 500; font-size: 11px; text-transform: none; letter-spacing: 0;">${c.industry}</span></td>
-            <td><span class="platform-indicator ${platformClass}">${c.platform}</span></td>
-            <td><span class="badge badge-accent" style="font-weight: 500; font-size: 11px;">${c.goal}</span></td>
-            <td class="text-right">${c.ads_count}</td>
-            <td class="text-right"><strong>$${c.spend.toLocaleString()}</strong></td>
-            <td class="text-right">${c.impressions.toLocaleString()}</td>
-            <td class="text-right" style="color: var(--primary); font-weight: 600;">${c.ctr}%</td>
-          `;
-          statsTableBody.appendChild(row);
-        });
-
-        // Set progress bars width based on CTR percentage, up to 100%
-        const ctrProgressBar = document.querySelector('.border-ctr .kpi-progress-bar');
-        if (ctrProgressBar) {
-          const ctrPercent = Math.min((data.totals.ctr / 5) * 100, 100);
-          ctrProgressBar.style.width = `${ctrPercent}%`;
-        }
-      })
-      .catch(err => {
-        console.error("Load stats failed:", err);
-        statsTableBody.innerHTML = `
-          <tr>
-            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
-              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
-                <i data-lucide="alert-triangle" style="width: 32px; height: 32px; color: #ef4444;"></i>
-                <span style="font-weight: 600; color: var(--text-main);">Database Connection Failed</span>
-                <span style="font-size: 13px;">Unable to load stats from database server at <strong>${API_BASE_URL || window.location.origin}</strong>.</span>
-              </div>
-            </td>
-          </tr>
-        `;
-        safeCreateIcons();
-        showToast("Failed to fetch campaign stats.", "error");
-      });
+    ensureDbMode().then(connected => {
+      if (connected) {
+        fetch(`${API_BASE_URL}/api/campaign-stats`)
+          .then(response => {
+            if (!response.ok) throw new Error("Could not fetch stats.");
+            return response.json();
+          })
+          .then(data => {
+            renderStatsUI(data);
+          })
+          .catch(err => {
+            console.error("Load stats failed:", err);
+            statsTableBody.innerHTML = `
+              <tr>
+                <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                    <i data-lucide="alert-triangle" style="width: 32px; height: 32px; color: #ef4444;"></i>
+                    <span style="font-weight: 600; color: var(--text-main);">Database Connection Failed</span>
+                    <span style="font-size: 13px;">Unable to load stats from database server at <strong>${API_BASE_URL || window.location.origin}</strong>.</span>
+                  </div>
+                </td>
+              </tr>
+            `;
+            safeCreateIcons();
+            showToast("Failed to fetch campaign stats.", "error");
+          });
+      } else {
+        // Fallback: Read from LocalStorage
+        const data = getLocalStorageCampaignStats();
+        renderStatsUI(data);
+      }
+    });
   }
 
-  // Pre-load data in background
-  loadHistoryData(false);
-  loadCampaignStats(false);
+  function renderStatsUI(data) {
+    const statsTableBody = document.getElementById('stats-table-body');
+    if (!statsTableBody) return;
+
+    // Update KPI values
+    const spendEl = document.getElementById('kpi-spend');
+    const ctrEl = document.getElementById('kpi-ctr');
+    const impressionsEl = document.getElementById('kpi-impressions');
+    const adsEl = document.getElementById('kpi-ads');
+
+    if (spendEl) spendEl.textContent = `$${data.totals.spend.toLocaleString()}`;
+    if (ctrEl) ctrEl.textContent = `${data.totals.ctr}%`;
+    if (impressionsEl) impressionsEl.textContent = data.totals.impressions.toLocaleString();
+    if (adsEl) adsEl.textContent = data.totals.ads_count;
+
+    // Render comparative table
+    statsTableBody.innerHTML = '';
+    if (data.campaigns.length === 0) {
+      statsTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">No campaigns found. Generate copies to view statistics.</td></tr>';
+      return;
+    }
+
+    data.campaigns.forEach(c => {
+      const row = document.createElement('tr');
+      const platformClass = c.platform ? c.platform.toLowerCase().replace(/\s/g, '') : '';
+      row.innerHTML = `
+        <td><strong>${c.name}</strong></td>
+        <td><span class="badge badge-outline" style="background: var(--bg-main); color: var(--text-main); font-weight: 500; font-size: 11px; text-transform: none; letter-spacing: 0;">${c.industry}</span></td>
+        <td><span class="platform-indicator ${platformClass}">${c.platform}</span></td>
+        <td><span class="badge badge-accent" style="font-weight: 500; font-size: 11px;">${c.goal}</span></td>
+        <td class="text-right">${c.ads_count}</td>
+        <td class="text-right"><strong>$${c.spend.toLocaleString()}</strong></td>
+        <td class="text-right">${c.impressions.toLocaleString()}</td>
+        <td class="text-right" style="color: var(--primary); font-weight: 600;">${c.ctr}%</td>
+      `;
+      statsTableBody.appendChild(row);
+    });
+
+    // Set progress bars width based on CTR percentage, up to 100%
+    const ctrProgressBar = document.querySelector('.border-ctr .kpi-progress-bar');
+    if (ctrProgressBar) {
+      const ctrPercent = Math.min((data.totals.ctr / 5) * 100, 100);
+      ctrProgressBar.style.width = `${ctrPercent}%`;
+    }
+  }
+
+  // Pre-load data in background after checking connection mode
+  ensureDbMode().then(() => {
+    loadHistoryData(false);
+    loadCampaignStats(false);
+  });
 
   // --- Initial Page Prep ---
   // Apply a nice custom style class to indicate newly loaded content
