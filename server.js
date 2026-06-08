@@ -7,7 +7,12 @@ const app = express();
 const PORT = 8000;
 const DB_FILE = path.join(__dirname, 'db.json');
 
-app.use(cors());
+// Enable CORS middleware explicitly for all domain origins to allow cross-origin API access
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Serve static frontend files from current directory

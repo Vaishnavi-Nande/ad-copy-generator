@@ -4,6 +4,28 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // --- Initialize Environmental Variables & API Base URL ---
+  window.PUBLIC_API_URL = window.PUBLIC_API_URL || "";
+  window.VITE_API_URL = window.VITE_API_URL || "";
+
+  function getApiBaseUrl() {
+    if (window.PUBLIC_API_URL) return window.PUBLIC_API_URL;
+    if (window.VITE_API_URL) return window.VITE_API_URL;
+    
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      const port = window.location.port;
+      
+      if (protocol === 'file:' || ['3000', '5173', '8080', '8081', '8082'].includes(port)) {
+        return `${protocol === 'https:' ? 'https:' : 'http:'}//${hostname || 'localhost'}:8000`;
+      }
+    }
+    return '';
+  }
+
+  const API_BASE_URL = getApiBaseUrl();
+
   // --- Safe Lucide Icons Wrapper ---
   function safeCreateIcons() {
     if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
@@ -614,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cta: results.cta
     };
 
-    fetch('/api/history', {
+    fetch(`${API_BASE_URL}/api/history`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -650,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (historyEmpty) historyEmpty.classList.add('hidden');
     }
 
-    fetch('/api/history')
+    fetch(`${API_BASE_URL}/api/history`)
       .then(response => {
         if (!response.ok) throw new Error("Could not load history.");
         return response.json();
@@ -661,8 +683,18 @@ document.addEventListener('DOMContentLoaded', () => {
       })
       .catch(err => {
         console.error("Fetch history failed:", err);
-        if (historyList) historyList.innerHTML = '';
-        if (historyEmpty) historyEmpty.classList.remove('hidden');
+        historyList.innerHTML = `
+          <div style="grid-column: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; gap: 16px;" class="card">
+            <i data-lucide="alert-triangle" style="width: 48px; height: 48px; color: #f59e0b; background-color: #fffbeb; padding: 10px; border-radius: 50%;"></i>
+            <h3 style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--text-main);">Connection Error</h3>
+            <p style="font-size: 14px; color: var(--text-muted); max-width: 340px;">Unable to establish communication with the database server at <strong>${API_BASE_URL || window.location.origin}</strong>. Please ensure the server is active.</p>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="loadHistoryData(true);">
+              <i data-lucide="refresh-cw"></i> Retry Connection
+            </button>
+          </div>
+        `;
+        safeCreateIcons();
+        if (historyEmpty) historyEmpty.classList.add('hidden');
         showToast("Failed to fetch campaign history.", "error");
       });
   }
@@ -846,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnDeleteConfirm.addEventListener('click', () => {
       if (!adIdToDelete) return;
 
-      fetch(`/api/history/${adIdToDelete}`, {
+      fetch(`${API_BASE_URL}/api/history/${adIdToDelete}`, {
         method: 'DELETE'
       })
         .then(response => {
@@ -878,7 +910,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statsTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px;"><div class="quantum-spinner" style="margin: 0 auto;"></div></td></tr>';
     }
 
-    fetch('/api/campaign-stats')
+    fetch(`${API_BASE_URL}/api/campaign-stats`)
       .then(response => {
         if (!response.ok) throw new Error("Could not fetch stats.");
         return response.json();
@@ -927,6 +959,18 @@ document.addEventListener('DOMContentLoaded', () => {
       })
       .catch(err => {
         console.error("Load stats failed:", err);
+        statsTableBody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                <i data-lucide="alert-triangle" style="width: 32px; height: 32px; color: #ef4444;"></i>
+                <span style="font-weight: 600; color: var(--text-main);">Database Connection Failed</span>
+                <span style="font-size: 13px;">Unable to load stats from database server at <strong>${API_BASE_URL || window.location.origin}</strong>.</span>
+              </div>
+            </td>
+          </tr>
+        `;
+        safeCreateIcons();
         showToast("Failed to fetch campaign stats.", "error");
       });
   }
