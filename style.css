@@ -2201,3 +2201,189 @@ textarea {
 .history-card:hover .history-card-image img {
   transform: scale(1.03);
 }
+
+/* --- Publishing Workflow & Hub Styles --- */
+.channel-link-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(0.95);
+  box-shadow: var(--shadow-sm);
+}
+
+.channel-link-btn i {
+  flex-shrink: 0;
+}
+
+/* Publishing Hub Dashboard */
+.publishing-grid {
+  margin-top: 15px;
+}
+
+.publishing-column {
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.publishing-column .card-body-scroll {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.publishing-column .card-body-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.publishing-column .card-body-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.publishing-column .card-body-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 4px;
+}
+
+/* Empty Column State */
+.empty-column-state i {
+  color: var(--text-muted);
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0px); }
+}
+
+/* Campaign Cards inside Hub columns */
+.campaign-hub-card {
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  position: relative;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.campaign-hub-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+}
+
+.campaign-hub-card .hub-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.campaign-hub-card .hub-card-biz {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.campaign-hub-card .hub-card-prod {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.campaign-hub-card .hub-card-platform {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+/* Platform Colors for badges */
+.badge-platform-facebook { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.badge-platform-instagram { background: rgba(236, 72, 153, 0.1); color: #ec4899; }
+.badge-platform-google { background: rgba(234, 179, 8, 0.1); color: #eab308; }
+.badge-platform-linkedin { background: rgba(10, 102, 194, 0.1); color: #0a66c2; }
+
+.campaign-hub-card .hub-card-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.campaign-hub-card .hub-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+}
+
+/* Queue progress item styles */
+.queue-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.queue-progress-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.queue-progress-status {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.queue-progress-pct {
+  color: var(--text-muted);
+}
+
+.queue-progress-bar {
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.queue-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.4);
+}
+
+/* Wizard Option Card Hover states */
+.wizard-option-card:hover {
+  border-color: var(--text-muted) !important;
+  background-color: rgba(255, 255, 255, 0.01);
+}
+
+.wizard-option-card.active {
+  border-color: var(--accent) !important;
+  background: rgba(249, 115, 22, 0.04) !important;
+}
+
+.wizard-option-card.active i {
+  color: var(--accent) !important;
+}

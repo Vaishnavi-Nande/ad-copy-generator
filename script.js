@@ -157,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Navigation Routing Logic ---
   const views = {
     'btn-nav-generator': document.getElementById('generator-view'),
+    'btn-nav-publisher': document.getElementById('publisher-view'),
     'btn-nav-history': document.getElementById('history-view'),
     'btn-nav-analytics': document.getElementById('stats-view')
   };
@@ -186,6 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadHistoryData(true);
       } else if (item.id === 'btn-nav-analytics') {
         loadCampaignStats(true);
+      } else if (item.id === 'btn-nav-publisher') {
+        loadPublisherHubData();
       }
     });
   });
@@ -1050,7 +1053,9 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('bizleap_ads', JSON.stringify(ads));
   }
 
-  function saveLocalStorageAd(params, results) {
+  let lastSavedAdId = null;
+
+  function saveLocalStorageAd(params, results, status = "history", scheduled_time = null) {
     const mock_impressions = Math.floor(Math.random() * (5000 - 1000 + 1)) + 1000;
     const mock_ctr = parseFloat((Math.random() * (4.2 - 1.5) + 1.5).toFixed(2));
     const mock_clicks = Math.round(mock_impressions * (mock_ctr / 100));
@@ -1058,17 +1063,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const newAd = {
       id: "ad-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
-      business_name: params.bizName,
-      industry_type: params.industry || "General",
-      product_name: params.product,
-      target_audience: params.audience || "General Audience",
-      campaign_goal: params.goal || "Traffic",
-      ad_platform: params.platform || "Facebook",
-      ad_tone: params.tone || "Professional",
+      business_name: params.bizName || params.business_name,
+      industry_type: params.industry || params.industry_type || "General",
+      product_name: params.product || params.product_name,
+      target_audience: params.audience || params.target_audience || "General Audience",
+      campaign_goal: params.goal || params.campaign_goal || "Traffic",
+      ad_platform: params.platform || params.ad_platform || "Facebook",
+      ad_tone: params.tone || params.ad_tone || "Professional",
       headline: results.headline,
-      body_text: results.body,
+      body_text: results.body || results.body_text,
       cta: results.cta || "Learn More",
       selected_image_url: selectedImageUrl || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+      status: status,
+      scheduled_time: scheduled_time,
+      published_time: (status === "published" || status === "publishing") ? new Date().toISOString() : null,
       mock_impressions,
       mock_ctr,
       mock_clicks,
@@ -1090,7 +1098,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getLocalStorageCampaignStats() {
     const ads = getLocalStorageAds();
-    if (ads.length === 0) {
+    const activeAds = ads.filter(ad => !ad.status || ad.status === 'history' || ad.status === 'published');
+    
+    if (activeAds.length === 0) {
       return {
         totals: { ads_count: 0, unique_businesses: 0, spend: 0, impressions: 0, ctr: 0, clicks: 0 },
         campaigns: []
@@ -1103,7 +1113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const businessSet = new Set();
     const campaignsMap = {};
 
-    ads.forEach(ad => {
+    activeAds.forEach(ad => {
       totalSpend += ad.mock_spend;
       totalImpressions += ad.mock_impressions;
       totalClicks += ad.mock_clicks;
@@ -1141,7 +1151,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return {
       totals: {
-        ads_count: ads.length,
+        ads_count: activeAds.length,
         unique_businesses: businessSet.size,
         spend: totalSpend,
         impressions: totalImpressions,
@@ -1154,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Hybrid Fetch Wrapper Methods ---
 
-  function saveAdToDatabase(params, results) {
+  function saveAdToDatabase(params, results, status = "history", scheduled_time = null) {
     ensureDbMode().then(connected => {
       if (connected) {
         const dataToPost = {
@@ -1168,7 +1178,9 @@ document.addEventListener('DOMContentLoaded', () => {
           headline: results.headline,
           body_text: results.body,
           cta: results.cta,
-          selected_image_url: selectedImageUrl
+          selected_image_url: selectedImageUrl,
+          status: status,
+          scheduled_time: scheduled_time
         };
 
         fetch(`${API_BASE_URL}/api/history`, {
@@ -1186,6 +1198,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(savedAd => {
           console.log("Successfully saved ad (Cloud Sync):", savedAd);
+          lastSavedAdId = savedAd.id;
           loadHistoryData(false); 
           loadCampaignStats(false);
         })
@@ -1195,7 +1208,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       } else {
         // Fallback: Save to LocalStorage
-        saveLocalStorageAd(params, results);
+        const savedAd = saveLocalStorageAd(params, results, status, scheduled_time);
+        lastSavedAdId = savedAd.id;
         console.log("Successfully saved ad (Browser Storage).");
         loadHistoryData(false); 
         loadCampaignStats(false);
@@ -1574,6 +1588,769 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   `;
   document.head.appendChild(styleEl);
+
+  // --- Publishing Hub & Exporter Actions Integration ---
+
+  // Helper: Get current campaign object
+  function getCurrentCampaignData() {
+    const platformRadio = document.querySelector('input[name="ad-platform"]:checked');
+    const toneRadio = document.querySelector('input[name="ad-tone"]:checked');
+    return {
+      business_name: businessNameInput.value || "Apex Heights",
+      industry_type: industryTypeInput.value || "Real Estate",
+      product_name: productNameInput.value || "Premium Apartments",
+      target_audience: targetAudienceInput.value || "General Audience",
+      campaign_goal: campaignGoalInput.value || "Lead Generation",
+      ad_platform: platformRadio ? platformRadio.value : 'Facebook',
+      ad_tone: toneRadio ? toneRadio.value : 'Professional',
+      headline: headlineTextarea.value || "",
+      body_text: bodyTextarea.value || "",
+      cta: ctaTextarea.value || "Learn More",
+      selected_image_url: selectedImageUrl || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80"
+    };
+  }
+
+  // 1. Export JSON Action
+  const btnExportJson = document.getElementById('btn-export-json');
+  if (btnExportJson) {
+    btnExportJson.addEventListener('click', () => {
+      const data = getCurrentCampaignData();
+      const filename = `${data.business_name.toLowerCase().replace(/\s+/g, '_')}_campaign.json`;
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Campaign exported as JSON successfully!", "success");
+    });
+  }
+
+  // 2. Download Image Action (html2canvas capture)
+  const btnDownloadImage = document.getElementById('btn-download-image');
+  if (btnDownloadImage) {
+    btnDownloadImage.addEventListener('click', () => {
+      const currentPlatform = getCurrentCampaignData().ad_platform;
+      let targetElement = null;
+      
+      if (currentPlatform === 'Facebook') targetElement = document.getElementById('mockup-facebook');
+      else if (currentPlatform === 'Instagram') targetElement = document.getElementById('mockup-instagram');
+      else if (currentPlatform === 'Google Ads') targetElement = document.getElementById('mockup-google');
+      else if (currentPlatform === 'LinkedIn') targetElement = document.getElementById('mockup-linkedin');
+
+      if (!targetElement) {
+        showToast("Mockup element not found.", "error");
+        return;
+      }
+
+      showToast("Generating image asset...", "info");
+
+      html2canvas(targetElement, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        scale: 2 // high resolution
+      }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const filename = `${currentPlatform.toLowerCase().replace(/\s+/g, '_')}_mockup_${Date.now()}.png`;
+        
+        const a = document.createElement('a');
+        a.href = imgData;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast("Ad Mockup image downloaded!", "success");
+      }).catch(err => {
+        console.error("html2canvas error:", err);
+        showToast("Failed to render mockup image.", "error");
+      });
+    });
+  }
+
+  // 3. Download PDF Report Action (jsPDF + html2canvas capture)
+  const btnDownloadPdf = document.getElementById('btn-download-pdf');
+  if (btnDownloadPdf) {
+    btnDownloadPdf.addEventListener('click', () => {
+      const data = getCurrentCampaignData();
+      let targetElement = null;
+      
+      if (data.ad_platform === 'Facebook') targetElement = document.getElementById('mockup-facebook');
+      else if (data.ad_platform === 'Instagram') targetElement = document.getElementById('mockup-instagram');
+      else if (data.ad_platform === 'Google Ads') targetElement = document.getElementById('mockup-google');
+      else if (data.ad_platform === 'LinkedIn') targetElement = document.getElementById('mockup-linkedin');
+
+      if (!targetElement) {
+        showToast("Mockup element not found.", "error");
+        return;
+      }
+
+      showToast("Compiling PDF Campaign Report...", "info");
+
+      html2canvas(targetElement, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        scale: 2
+      }).then(canvas => {
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+
+        // Page 1: Header & Metadata
+        pdf.setFillColor(37, 99, 235); // Blue primary banner
+        pdf.rect(0, 0, 210, 40, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(22);
+        pdf.text("BIZLEAP TECHNOLOGIES", 15, 20);
+        pdf.setFontSize(12);
+        pdf.text("Campaign Copywriting & Visual Proposal Report", 15, 28);
+        
+        pdf.setTextColor(15, 23, 42); // slate 900
+        pdf.setFontSize(18);
+        pdf.text(`Campaign: ${data.business_name}`, 15, 55);
+        
+        // Metadata Table
+        pdf.setFontSize(11);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("CAMPAIGN METADATA", 15, 68);
+        pdf.line(15, 70, 195, 70);
+        
+        const metadataRows = [
+          ["Business Name", data.business_name],
+          ["Industry / Sector", data.industry_type],
+          ["Target Product/Service", data.product_name],
+          ["Campaign Objective", data.campaign_goal],
+          ["Ad Platform", data.ad_platform],
+          ["Creative Tone", data.ad_tone],
+          ["Call To Action", data.cta]
+        ];
+        
+        pdf.setFont("helvetica", "normal");
+        let startY = 78;
+        metadataRows.forEach(row => {
+          pdf.setFont("helvetica", "bold");
+          pdf.text(row[0] + ":", 17, startY);
+          pdf.setFont("helvetica", "normal");
+          pdf.text(row[1], 60, startY);
+          startY += 8;
+        });
+
+        // Copy outputs section
+        startY += 6;
+        pdf.setFont("helvetica", "bold");
+        pdf.text("GENERATED COPYPACK", 15, startY);
+        pdf.line(15, startY + 2, 195, startY + 2);
+        startY += 10;
+
+        // Headline
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Headline / Hook:", 17, startY);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(data.headline, 17, startY + 6, { maxWidth: 175 });
+        startY += 18;
+
+        // Primary Copy
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Primary Body Text:", 17, startY);
+        pdf.setFont("helvetica", "normal");
+        const bodyLines = pdf.splitTextToSize(data.body_text, 175);
+        pdf.text(bodyLines, 17, startY + 6);
+        
+        // Move to Page 2 for preview mockup and projected performance
+        pdf.addPage();
+        
+        // Mockup Header
+        pdf.setFillColor(15, 23, 42); // Dark slate header
+        pdf.rect(0, 0, 210, 20, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(12);
+        pdf.text(`Live Mockup Ad Creative - ${data.ad_platform}`, 15, 13);
+
+        // Calculate aspect ratio to fit image into page
+        const imgWidth = 140; 
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        // Embed Mockup creative
+        pdf.addImage(imgData, 'JPEG', 15, 30, imgWidth, Math.min(imgHeight, 140));
+
+        // Projections Block
+        const projY = 30 + Math.min(imgHeight, 140) + 15;
+        pdf.setTextColor(15, 23, 42);
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Projected Campaign Performance (Simulation)", 15, projY);
+        pdf.line(15, projY + 2, 195, projY + 2);
+        
+        // Draw some metrics cards
+        const metricX = 15;
+        const metricY = projY + 8;
+        
+        pdf.setFillColor(248, 250, 252);
+        pdf.rect(metricX, metricY, 180, 28, 'F');
+        pdf.rect(metricX, metricY, 180, 28, 'D');
+
+        pdf.setFontSize(10);
+        pdf.setTextColor(100, 116, 139);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("Est. Impressions", metricX + 10, metricY + 10);
+        pdf.text("Est. Clicks", metricX + 60, metricY + 10);
+        pdf.text("Target CTR", metricX + 110, metricY + 10);
+        pdf.text("Est. Budget Spend", metricX + 145, metricY + 10);
+
+        pdf.setFontSize(12);
+        pdf.setTextColor(15, 23, 42);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("3,500 - 5,000", metricX + 10, metricY + 20);
+        pdf.text("120 - 180", metricX + 60, metricY + 20);
+        pdf.text("3.42%", metricX + 110, metricY + 20);
+        pdf.text("$350.00", metricX + 145, metricY + 20);
+
+        // Footer notice
+        pdf.setFontSize(9);
+        pdf.setTextColor(148, 163, 184);
+        pdf.setFont("helvetica", "italic");
+        pdf.text("This is an AI-generated marketing proposal compiled by BizLeap Technologies.", 15, 285);
+        
+        pdf.save(`${data.business_name.toLowerCase().replace(/\s+/g, '_')}_campaign_report.pdf`);
+        showToast("PDF Campaign Report downloaded!", "success");
+      }).catch(err => {
+        console.error("PDF generation failed:", err);
+        showToast("Failed to compile PDF Report.", "error");
+      });
+    });
+  }
+
+  // 4. Publish Wizard Dialog controls
+  const publishWizardModal = document.getElementById('publish-wizard-modal');
+  const btnPublishWizard = document.getElementById('btn-publish-wizard');
+  const btnWizardCancel = document.getElementById('btn-wizard-cancel');
+  const btnWizardConfirm = document.getElementById('btn-wizard-confirm');
+  const wizardScheduleTimeBox = document.getElementById('wizard-schedule-time-box');
+  const wizardScheduleTimeInput = document.getElementById('wizard-schedule-time');
+
+  let selectedWizardOption = 'now'; // default option
+
+  if (btnPublishWizard) {
+    btnPublishWizard.addEventListener('click', () => {
+      if (publishWizardModal) {
+        publishWizardModal.classList.remove('hidden');
+      }
+    });
+  }
+
+  if (btnWizardCancel) {
+    btnWizardCancel.addEventListener('click', () => {
+      if (publishWizardModal) publishWizardModal.classList.add('hidden');
+    });
+  }
+
+  // Handle option cards click inside the wizard modal
+  const wizardOptionCards = document.querySelectorAll('.wizard-option-card');
+  wizardOptionCards.forEach(card => {
+    card.addEventListener('click', () => {
+      wizardOptionCards.forEach(c => {
+        c.classList.remove('active');
+        c.style.borderColor = 'var(--border-color)';
+        c.style.background = '';
+      });
+      card.classList.add('active');
+      card.style.borderColor = 'var(--accent)';
+      card.style.background = 'rgba(249, 115, 22, 0.04)';
+      
+      const opt = card.getAttribute('data-option');
+      selectedWizardOption = opt;
+
+      if (opt === 'schedule') {
+        if (wizardScheduleTimeBox) wizardScheduleTimeBox.classList.remove('hidden');
+      } else {
+        if (wizardScheduleTimeBox) wizardScheduleTimeBox.classList.add('hidden');
+      }
+    });
+  });
+
+  if (btnWizardConfirm) {
+    btnWizardConfirm.addEventListener('click', () => {
+      const data = getCurrentCampaignData();
+      if (publishWizardModal) publishWizardModal.classList.add('hidden');
+      
+      const params = {
+        bizName: data.business_name,
+        industry: data.industry_type,
+        product: data.product_name,
+        audience: data.target_audience,
+        goal: data.campaign_goal,
+        platform: data.ad_platform,
+        tone: data.ad_tone,
+        cta: data.cta
+      };
+      
+      const results = {
+        headline: data.headline,
+        body: data.body_text,
+        cta: data.cta
+      };
+
+      if (selectedWizardOption === 'now') {
+        // Publish Now -> simulation queue
+        showToast("Initializing simulated publishing pipeline...", "info");
+        
+        // Save to DB in 'publishing' state
+        ensureDbMode().then(connected => {
+          if (connected) {
+            const dataToPost = {
+              ...data,
+              status: 'publishing',
+              scheduled_time: null
+            };
+            fetch(`${API_BASE_URL}/api/history`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(dataToPost)
+            })
+            .then(res => res.json())
+            .then(savedAd => {
+              // Redirect to Publisher Hub
+              document.getElementById('btn-nav-publisher').click();
+              startQueueSimulation(savedAd);
+            });
+          } else {
+            const savedAd = saveLocalStorageAd(params, results, 'publishing', null);
+            document.getElementById('btn-nav-publisher').click();
+            startQueueSimulation(savedAd);
+          }
+        });
+      } 
+      
+      else if (selectedWizardOption === 'schedule') {
+        // Schedule Campaign
+        const scheduleVal = wizardScheduleTimeInput ? wizardScheduleTimeInput.value : '';
+        if (!scheduleVal) {
+          showToast("Please choose a schedule date & time.", "error");
+          if (publishWizardModal) publishWizardModal.classList.remove('hidden');
+          return;
+        }
+
+        showToast("Campaign scheduled successfully!", "success");
+        
+        ensureDbMode().then(connected => {
+          if (connected) {
+            const dataToPost = {
+              ...data,
+              status: 'scheduled',
+              scheduled_time: new Date(scheduleVal).toISOString()
+            };
+            fetch(`${API_BASE_URL}/api/history`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(dataToPost)
+            })
+            .then(res => res.json())
+            .then(() => {
+              document.getElementById('btn-nav-publisher').click();
+            });
+          } else {
+            saveLocalStorageAd(params, results, 'scheduled', new Date(scheduleVal).toISOString());
+            document.getElementById('btn-nav-publisher').click();
+          }
+        });
+      } 
+      
+      else if (selectedWizardOption === 'draft') {
+        // Save as Draft
+        showToast("Campaign saved to drafts.", "success");
+        
+        ensureDbMode().then(connected => {
+          if (connected) {
+            const dataToPost = {
+              ...data,
+              status: 'draft',
+              scheduled_time: null
+            };
+            fetch(`${API_BASE_URL}/api/history`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(dataToPost)
+            })
+            .then(res => res.json())
+            .then(() => {
+              document.getElementById('btn-nav-publisher').click();
+            });
+          } else {
+            saveLocalStorageAd(params, results, 'draft', null);
+            document.getElementById('btn-nav-publisher').click();
+          }
+        });
+      }
+    });
+  }
+
+  // 5. Publisher Hub Render Logic
+  let activeSimulationIntervals = {}; // tracks running queue timers
+
+  function loadPublisherHubData() {
+    const queueList = document.getElementById('queue-list');
+    const scheduledList = document.getElementById('scheduled-list');
+    const draftsList = document.getElementById('drafts-list');
+    
+    const queueEmpty = document.getElementById('queue-empty');
+    const scheduledEmpty = document.getElementById('scheduled-empty');
+    const draftsEmpty = document.getElementById('drafts-empty');
+
+    const scheduledCountBadge = document.getElementById('scheduled-count-badge');
+    const draftsCountBadge = document.getElementById('drafts-count-badge');
+
+    // Fetch campaigns
+    ensureDbMode().then(connected => {
+      if (connected) {
+        return fetch(`${API_BASE_URL}/api/history`)
+          .then(res => res.json());
+      } else {
+        return getLocalStorageAds();
+      }
+    })
+    .then(data => {
+      const queueItems = data.filter(ad => ad.status === 'publishing' || ad.status === 'published');
+      const scheduledItems = data.filter(ad => ad.status === 'scheduled');
+      const draftsItems = data.filter(ad => ad.status === 'draft');
+
+      if (scheduledCountBadge) scheduledCountBadge.textContent = scheduledItems.length;
+      if (draftsCountBadge) draftsCountBadge.textContent = draftsItems.length;
+
+      // Render Drafts
+      if (draftsList) {
+        const items = draftsList.querySelectorAll('.campaign-hub-card');
+        items.forEach(el => el.remove());
+
+        if (draftsItems.length === 0) {
+          if (draftsEmpty) draftsEmpty.classList.remove('hidden');
+        } else {
+          if (draftsEmpty) draftsEmpty.classList.add('hidden');
+          draftsItems.forEach(ad => {
+            const card = createPublisherHubCardHTML(ad, 'draft');
+            draftsList.appendChild(card);
+          });
+        }
+      }
+
+      // Render Scheduled
+      if (scheduledList) {
+        const items = scheduledList.querySelectorAll('.campaign-hub-card');
+        items.forEach(el => el.remove());
+
+        if (scheduledItems.length === 0) {
+          if (scheduledEmpty) scheduledEmpty.classList.remove('hidden');
+        } else {
+          if (scheduledEmpty) scheduledEmpty.classList.add('hidden');
+          scheduledItems.forEach(ad => {
+            const card = createPublisherHubCardHTML(ad, 'scheduled');
+            scheduledList.appendChild(card);
+          });
+        }
+      }
+
+      // Render Queue
+      if (queueList) {
+        const items = queueList.querySelectorAll('.campaign-hub-card');
+        items.forEach(el => el.remove());
+
+        // Check if there are active publishing items not in our UI intervals yet
+        queueItems.forEach(ad => {
+          if (ad.status === 'publishing' && !activeSimulationIntervals[ad.id]) {
+            startQueueSimulation(ad, Math.floor(Math.random() * 40) + 10);
+          }
+        });
+
+        if (queueItems.length === 0) {
+          if (queueEmpty) queueEmpty.classList.remove('hidden');
+        } else {
+          if (queueEmpty) queueEmpty.classList.add('hidden');
+          queueItems.forEach(ad => {
+            const card = createPublisherHubCardHTML(ad, 'queue');
+            queueList.appendChild(card);
+          });
+        }
+      }
+
+      safeCreateIcons();
+    })
+    .catch(err => {
+      console.error("Failed to load publisher hub data:", err);
+      showToast("Could not load Publishing Hub proposals.", "error");
+    });
+  }
+
+  // Create Card Element for Hub Columns
+  function createPublisherHubCardHTML(ad, type) {
+    const card = document.createElement('div');
+    card.className = 'campaign-hub-card';
+    card.id = `hub-card-${ad.id}`;
+    
+    const platformClass = ad.ad_platform ? ad.ad_platform.toLowerCase().replace(/\s/g, '') : 'facebook';
+    const cleanPlatform = ad.ad_platform || 'Facebook';
+    
+    let headerRight = '';
+    let footerRow = '';
+    
+    if (type === 'draft') {
+      headerRight = `<span class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: none;">Draft</span>`;
+      footerRow = `
+        <div class="hub-card-actions">
+          <button class="btn btn-sm btn-outline btn-hub-delete" style="padding: 4px 8px; font-size: 11px;" data-id="${ad.id}">
+            <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i> Delete
+          </button>
+          <button class="btn btn-sm btn-primary btn-hub-resume" style="padding: 4px 10px; font-size: 11px;" data-id="${ad.id}">
+            <i data-lucide="edit" style="width: 12px; height: 12px;"></i> Resume Draft
+          </button>
+        </div>
+      `;
+    } 
+    
+    else if (type === 'scheduled') {
+      const dateStr = new Date(ad.scheduled_time).toLocaleString();
+      headerRight = `<span class="badge" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: none;">Scheduled</span>`;
+      footerRow = `
+        <div class="hub-card-time"><i data-lucide="clock" style="width: 12px; height: 12px;"></i> Launch: ${dateStr}</div>
+        <div class="hub-card-actions">
+          <button class="btn btn-sm btn-outline btn-hub-cancel-schedule" style="padding: 4px 8px; font-size: 11px;" data-id="${ad.id}">
+             Cancel Schedule
+          </button>
+          <button class="btn btn-sm btn-primary btn-hub-publish-now" style="padding: 4px 10px; font-size: 11px;" data-id="${ad.id}">
+            <i data-lucide="send" style="width: 12px; height: 12px;"></i> Launch Now
+          </button>
+        </div>
+      `;
+    } 
+    
+    else if (type === 'queue') {
+      const isPublishing = ad.status === 'publishing';
+      const badgeColor = isPublishing ? 'rgba(249, 115, 22, 0.1)' : 'rgba(16, 185, 129, 0.1)';
+      const badgeText = isPublishing ? 'Publishing' : 'Active';
+      const badgeTextColor = isPublishing ? '#f97316' : '#10b981';
+      
+      headerRight = `<span class="badge" style="background: ${badgeColor}; color: ${badgeTextColor}; border: none;" id="queue-badge-${ad.id}">${badgeText}</span>`;
+      
+      const progressPct = isPublishing ? '30%' : '100%';
+      const progressText = isPublishing ? 'Uploading assets...' : 'Campaign deployed';
+      
+      footerRow = `
+        <div class="queue-progress-container">
+          <div class="queue-progress-label-row">
+            <span class="queue-progress-status" id="queue-status-text-${ad.id}">${progressText}</span>
+            <span class="queue-progress-pct" id="queue-pct-text-${ad.id}">${progressPct}</span>
+          </div>
+          <div class="queue-progress-bar">
+            <div class="queue-progress-fill" id="queue-progress-fill-${ad.id}" style="width: ${progressPct};"></div>
+          </div>
+        </div>
+        <div class="hub-card-actions">
+          <button class="btn btn-sm btn-outline btn-hub-delete" style="padding: 4px 8px; font-size: 11px;" data-id="${ad.id}">
+            <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i> Delete
+          </button>
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="hub-card-header">
+        <span class="hub-card-biz">${ad.business_name}</span>
+        ${headerRight}
+      </div>
+      <div class="hub-card-prod">${ad.product_name}</div>
+      <div class="hub-card-platform badge-platform-${platformClass}">
+        <i data-lucide="${getPlatformIconName(cleanPlatform)}" style="width: 11px; height: 11px;"></i>
+        <span>${cleanPlatform}</span>
+      </div>
+      ${footerRow}
+    `;
+
+    // Bind Resume Draft click
+    const resumeBtn = card.querySelector('.btn-hub-resume');
+    if (resumeBtn) {
+      resumeBtn.addEventListener('click', () => resumeDraft(ad));
+    }
+
+    // Bind Delete Draft
+    const deleteBtn = card.querySelector('.btn-hub-delete');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => {
+        adIdToDelete = ad.id;
+        const modal = document.getElementById('delete-confirm-modal');
+        if (modal) modal.classList.remove('hidden');
+        btnDeleteConfirm.onclick = () => {
+          ensureDbMode().then(connected => {
+            if (connected) {
+              return fetch(`${API_BASE_URL}/api/history/${ad.id}`, { method: 'DELETE' }).then(res => res.json());
+            } else {
+              deleteLocalStorageAd(ad.id);
+            }
+          }).then(() => {
+            showToast("Campaign deleted successfully.", "success");
+            if (deleteConfirmModal) deleteConfirmModal.classList.add('hidden');
+            loadPublisherHubData();
+            loadCampaignStats(false);
+          });
+        };
+      });
+    }
+
+    // Bind Cancel Schedule
+    const cancelScheduleBtn = card.querySelector('.btn-hub-cancel-schedule');
+    if (cancelScheduleBtn) {
+      cancelScheduleBtn.addEventListener('click', () => {
+        updateCampaignStatus(ad.id, 'draft', null).then(() => {
+          showToast("Schedule cancelled. Campaign reverted to drafts.", "info");
+          loadPublisherHubData();
+        });
+      });
+    }
+
+    // Bind Publish Now from Scheduled
+    const publishNowBtn = card.querySelector('.btn-hub-publish-now');
+    if (publishNowBtn) {
+      publishNowBtn.addEventListener('click', () => {
+        updateCampaignStatus(ad.id, 'publishing', null).then(updatedAd => {
+          showToast("Initializing publishing sequence...", "info");
+          loadPublisherHubData();
+          startQueueSimulation(updatedAd);
+        });
+      });
+    }
+
+    return card;
+  }
+
+  function getPlatformIconName(platform) {
+    if (platform === 'Facebook') return 'facebook';
+    if (platform === 'Instagram') return 'instagram';
+    if (platform === 'Google Ads') return 'search';
+    if (platform === 'LinkedIn') return 'linkedin';
+    return 'globe';
+  }
+
+  // Update Status in DB or LocalStorage
+  function updateCampaignStatus(id, newStatus, scheduledTime = null) {
+    return ensureDbMode().then(connected => {
+      if (connected) {
+        return fetch(`${API_BASE_URL}/api/history/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, scheduled_time: scheduledTime })
+        }).then(res => res.json());
+      } else {
+        const ads = getLocalStorageAds();
+        const adIdx = ads.findIndex(ad => ad.id === id);
+        if (adIdx !== -1) {
+          ads[adIdx].status = newStatus;
+          ads[adIdx].scheduled_time = scheduledTime;
+          if (newStatus === 'published' || newStatus === 'publishing') {
+            ads[adIdx].published_time = new Date().toISOString();
+          }
+          saveLocalStorageAds(ads);
+          return ads[adIdx];
+        }
+        throw new Error("Local ad not found");
+      }
+    });
+  }
+
+  // Resume Draft details
+  function resumeDraft(ad) {
+    businessNameInput.value = ad.business_name;
+    industryTypeInput.value = ad.industry_type;
+    productNameInput.value = ad.product_name;
+    targetAudienceInput.value = ad.target_audience;
+    campaignGoalInput.value = ad.campaign_goal;
+    ctaPreferenceInput.value = ad.cta;
+
+    // Platform selection
+    const platformRadio = document.querySelector(`input[name="ad-platform"][value="${ad.ad_platform}"]`);
+    if (platformRadio) platformRadio.checked = true;
+
+    // Tone selection
+    const toneRadio = document.querySelector(`input[name="ad-tone"][value="${ad.ad_tone}"]`);
+    if (toneRadio) toneRadio.checked = true;
+
+    // Load selected image
+    selectedImageUrl = ad.selected_image_url;
+    
+    // Switch views to Generator
+    document.getElementById('btn-nav-generator').click();
+    
+    // Fast generation
+    simulateAIGeneration(false);
+    showToast("Resumed draft campaign!", "success");
+  }
+
+  // Simulate progress bar publishing ticks
+  function startQueueSimulation(ad, startPct = 0) {
+    if (activeSimulationIntervals[ad.id]) return;
+
+    let pct = startPct;
+    const statusMessages = [
+      { max: 25, msg: "Verifying campaign policy..." },
+      { max: 50, msg: "Optimizing bid strategies..." },
+      { max: 75, msg: "Uploading creative media assets..." },
+      { max: 100, msg: "Deploying campaign to channels..." }
+    ];
+
+    const timer = setInterval(() => {
+      pct += Math.floor(Math.random() * 10) + 5; // increment
+      if (pct >= 100) {
+        pct = 100;
+        clearInterval(timer);
+        delete activeSimulationIntervals[ad.id];
+
+        // Update UI
+        const badge = document.getElementById(`queue-badge-${ad.id}`);
+        const statusText = document.getElementById(`queue-status-text-${ad.id}`);
+        const pctText = document.getElementById(`queue-pct-text-${ad.id}`);
+        const fillBar = document.getElementById(`queue-progress-fill-${ad.id}`);
+
+        if (badge) {
+          badge.textContent = "Active";
+          badge.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
+          badge.style.color = "#10b981";
+        }
+        if (statusText) statusText.textContent = "Campaign Deployed";
+        if (pctText) pctText.textContent = "100%";
+        if (fillBar) fillBar.style.width = "100%";
+
+        updateCampaignStatus(ad.id, 'published', null).then(() => {
+          showToast(`Campaign published live to ${ad.ad_platform}!`, "success");
+          loadCampaignStats(false);
+        });
+      } else {
+        // Find message
+        let activeMsg = "Publishing...";
+        for (let s of statusMessages) {
+          if (pct <= s.max) {
+            activeMsg = s.msg;
+            break;
+          }
+        }
+
+        // Update UI
+        const statusText = document.getElementById(`queue-status-text-${ad.id}`);
+        const pctText = document.getElementById(`queue-pct-text-${ad.id}`);
+        const fillBar = document.getElementById(`queue-progress-fill-${ad.id}`);
+
+        if (statusText) statusText.textContent = activeMsg;
+        if (pctText) pctText.textContent = `${pct}%`;
+        if (fillBar) fillBar.style.width = `${pct}%`;
+      }
+    }, 1200);
+
+    activeSimulationIntervals[ad.id] = timer;
+  }
 
   // Initialize mockup image loaders
   setupPreviewImageLoaders();

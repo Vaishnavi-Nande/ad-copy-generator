@@ -176,7 +176,9 @@ app.post('/api/history', (req, res) => {
       headline, 
       body_text, 
       cta,
-      selected_image_url
+      selected_image_url,
+      status,
+      scheduled_time
     } = req.body;
 
     if (!business_name || !product_name || !headline || !body_text) {
@@ -204,6 +206,9 @@ app.post('/api/history', (req, res) => {
       body_text,
       cta: cta || "Learn More",
       selected_image_url: selected_image_url || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+      status: status || "history",
+      scheduled_time: scheduled_time || null,
+      published_time: (status === "published" || status === "publishing") ? new Date().toISOString() : null,
       mock_impressions,
       mock_ctr,
       mock_clicks,
@@ -220,7 +225,39 @@ app.post('/api/history', (req, res) => {
   }
 });
 
-// 3. DELETE /api/history/:id - Delete record by ID
+// 3. PATCH /api/history/:id - Update campaign status, timing, or performance metrics
+app.patch('/api/history/:id', (req, res) => {
+  try {
+    const idToUpdate = req.params.id;
+    const db = getDb();
+    const adIndex = db.findIndex(ad => ad.id === idToUpdate);
+
+    if (adIndex === -1) {
+      return res.status(404).json({ error: "Campaign copy not found." });
+    }
+
+    const ad = db[adIndex];
+    const updates = req.body;
+
+    // Allowed fields to update
+    const allowedUpdates = ['status', 'scheduled_time', 'published_time', 'mock_impressions', 'mock_ctr', 'mock_clicks', 'mock_spend'];
+    
+    allowedUpdates.forEach(key => {
+      if (updates[key] !== undefined) {
+        ad[key] = updates[key];
+      }
+    });
+
+    db[adIndex] = ad;
+    saveDb(db);
+
+    res.json(ad);
+  } catch (err) {
+    res.status(500).json({ error: "Server failed to update campaign: " + err.message });
+  }
+});
+
+// 4. DELETE /api/history/:id - Delete record by ID
 app.delete('/api/history/:id', (req, res) => {
   try {
     const idToDelete = req.params.id;
@@ -240,12 +277,15 @@ app.delete('/api/history/:id', (req, res) => {
   }
 });
 
-// 4. GET /api/campaign-stats - Calculate analytics from history database
+// 5. GET /api/campaign-stats - Calculate analytics from history database
 app.get('/api/campaign-stats', (req, res) => {
   try {
     const db = getDb();
     
-    if (db.length === 0) {
+    // Only include published campaigns or history seeds in active campaign stats
+    const activeAds = db.filter(ad => !ad.status || ad.status === 'history' || ad.status === 'published');
+    
+    if (activeAds.length === 0) {
       return res.json({
         totals: {
           ads_count: 0,
@@ -265,7 +305,7 @@ app.get('/api/campaign-stats', (req, res) => {
     const businessSet = new Set();
     const campaignsMap = {};
 
-    db.forEach(ad => {
+    activeAds.forEach(ad => {
       totalSpend += ad.mock_spend;
       totalImpressions += ad.mock_impressions;
       totalClicks += ad.mock_clicks;
@@ -305,7 +345,7 @@ app.get('/api/campaign-stats', (req, res) => {
 
     res.json({
       totals: {
-        ads_count: db.length,
+        ads_count: activeAds.length,
         unique_businesses: businessSet.size,
         spend: totalSpend,
         impressions: totalImpressions,
