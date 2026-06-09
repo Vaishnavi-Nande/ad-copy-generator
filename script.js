@@ -430,11 +430,21 @@ document.addEventListener('DOMContentLoaded', () => {
                   if (resultsCard) resultsCard.classList.remove('hidden');
 
                   const results = generateAdCopyText(params);
-                  updateResultsUI(results, platform, bizName);
-                  if (withLoader) {
-                    saveAdToDatabase(params, results);
-                  }
-                  showToast("High-converting copy generated successfully!", "success");
+                  
+                  // Fetch dynamic business/storefront images first, then display and save
+                  fetchBusinessImages(bizName, industry).then(() => {
+                    updateResultsUI(results, platform, bizName);
+                    if (withLoader) {
+                      saveAdToDatabase(params, results);
+                    }
+                    showToast("High-converting copy generated successfully!", "success");
+                  }).catch(() => {
+                    updateResultsUI(results, platform, bizName);
+                    if (withLoader) {
+                      saveAdToDatabase(params, results);
+                    }
+                    showToast("High-converting copy generated successfully!", "success");
+                  });
                 } catch (err) {
                   handleGenerationError(err);
                 }
@@ -489,107 +499,250 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Dynamic Ad Preview Image Engine ---
 
-  // Mapped premium Unsplash stock images for Nagpur presets and common industries
-  const curatedStockImages = {
-    realestate: {
-      landscape: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&q=80",
-      square: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&h=600&q=80"
-    },
-    cafe: {
-      landscape: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=600&q=80",
-      square: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=600&h=600&q=80"
-    },
-    marketing: {
-      landscape: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&q=80",
-      square: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&h=600&q=80"
-    },
-    education: {
-      landscape: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
-      square: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&h=600&q=80"
-    },
-    wellness: {
-      landscape: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80",
-      square: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&h=600&q=80"
-    },
-    retail: {
-      landscape: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80",
-      square: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&h=600&q=80"
-    },
-    generic: {
-      landscape: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
-      square: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&h=600&q=80"
-    }
+  let selectedImageUrl = '';
+
+  const clientCuratedBrands = {
+    zudio: [
+      "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1479064555552-3ef4979f8908?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=600&q=80"
+    ],
+    lenskart: [
+      "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1508296695146-257a814070b4?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1511556532299-8f662fc26c06?auto=format&fit=crop&w=600&q=80"
+    ],
+    dominos: [
+      "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1590947132387-155cc02f3212?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1604382355076-af4b0eb60143?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=600&q=80"
+    ],
+    reliance: [
+      "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80"
+    ]
   };
 
-  // Helper to extract clean query term from fields
-  function getCampaignKeywords() {
-    const biz = (businessNameInput.value || "").toLowerCase();
-    const ind = (industryTypeInput.value || "").toLowerCase();
-    const prod = (productNameInput.value || "").toLowerCase();
-    const text = `${biz} ${ind} ${prod}`;
+  const clientCuratedCategories = {
+    "real estate": [
+      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80"
+    ],
+    "food & beverage": [
+      "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=600&q=80"
+    ],
+    "digital marketing / it": [
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=600&q=80"
+    ],
+    "education & coaching": [
+      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=600&q=80"
+    ],
+    "healthcare & wellness": [
+      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=600&q=80"
+    ],
+    "retail & e-commerce": [
+      "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=600&q=80"
+    ]
+  };
 
-    if (text.includes('heights') || text.includes('real estate') || text.includes('apartment') || text.includes('flat') || text.includes('home') || text.includes('building') || text.includes('residency')) {
-      return 'realestate';
-    }
-    if (text.includes('bistro') || text.includes('cafe') || text.includes('coffee') || text.includes('food') || text.includes('restaurant') || text.includes('brunch') || text.includes('dining')) {
-      return 'cafe';
-    }
-    if (text.includes('seo') || text.includes('marketing') || text.includes('digital') || text.includes('it') || text.includes('software') || text.includes('agency')) {
-      return 'marketing';
-    }
-    if (text.includes('coaching') || text.includes('education') || text.includes('course') || text.includes('learn') || text.includes('class') || text.includes('school') || text.includes('academy')) {
-      return 'education';
-    }
-    if (text.includes('health') || text.includes('wellness') || text.includes('clinic') || text.includes('doctor') || text.includes('spa') || text.includes('yoga') || text.includes('salon')) {
-      return 'wellness';
-    }
-    if (text.includes('retail') || text.includes('ecommerce') || text.includes('shop') || text.includes('boutique') || text.includes('store') || text.includes('fashion')) {
-      return 'retail';
+  const clientGenericFallback = [
+    "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=600&q=80",
+    "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=600&q=80",
+    "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&q=80",
+    "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80"
+  ];
+
+  function fetchBusinessImages(query, industry) {
+    const loaderSkeleton = document.getElementById('image-loader-skeleton');
+    const optionsGrid = document.getElementById('image-options-grid');
+    const sourceBadge = document.getElementById('image-source-badge');
+
+    if (loaderSkeleton) loaderSkeleton.classList.remove('hidden');
+    if (optionsGrid) optionsGrid.innerHTML = '';
+    if (sourceBadge) {
+      sourceBadge.textContent = "Searching...";
+      sourceBadge.className = "badge";
+      sourceBadge.style.backgroundColor = "rgba(249, 115, 22, 0.1)"; // orange badge
+      sourceBadge.style.color = "#f97316";
     }
 
-    // Default to resolving word tokens from product/business
-    const cleanProd = prod.replace(/[^a-z0-9\s]/g, '').trim();
-    if (cleanProd) {
-      const tokens = cleanProd.split(/\s+/).filter(t => t.length > 2 && t !== 'and' && t !== 'the' && t !== 'for');
-      if (tokens.length > 0) {
-        return tokens.slice(0, 2).join(',');
+    return ensureDbMode().then(connected => {
+      if (connected) {
+        return fetch(`${API_BASE_URL}/api/business-images?query=${encodeURIComponent(query)}&industry=${encodeURIComponent(industry)}`)
+          .then(res => {
+            if (!res.ok) throw new Error("API failed");
+            return res.json();
+          });
+      } else {
+        // Client-side local simulation
+        return new Promise(resolve => {
+          setTimeout(() => {
+            const normQuery = query.toLowerCase();
+            let brandKey = null;
+            if (normQuery.includes('zudio')) brandKey = 'zudio';
+            else if (normQuery.includes('lenskart')) brandKey = 'lenskart';
+            else if (normQuery.includes('domino')) brandKey = 'dominos';
+            else if (normQuery.includes('reliance') && (normQuery.includes('digital') || normQuery.includes('electric') || normQuery.includes('tech'))) brandKey = 'reliance';
+
+            if (brandKey && clientCuratedBrands[brandKey]) {
+              resolve({
+                images: clientCuratedBrands[brandKey],
+                source: "brand_assets",
+                status_message: "Real business photos found"
+              });
+            } else {
+              const normInd = industry.toLowerCase();
+              let selectedCategoryImages = null;
+              for (const key of Object.keys(clientCuratedCategories)) {
+                if (normInd.includes(key) || key.includes(normInd)) {
+                  selectedCategoryImages = clientCuratedCategories[key];
+                  break;
+                }
+              }
+              resolve({
+                images: selectedCategoryImages || clientGenericFallback,
+                source: "fallback_categories",
+                status_message: "Using category-based images"
+              });
+            }
+          }, 400); // simulate API call
+        });
       }
-    }
-    
-    const cleanBiz = biz.replace(/[^a-z0-9\s]/g, '').trim();
-    if (cleanBiz) {
-      const tokens = cleanBiz.split(/\s+/).filter(t => t.length > 2);
-      if (tokens.length > 0) return tokens[0];
-    }
-
-    return 'business';
+    })
+    .then(data => {
+      if (loaderSkeleton) loaderSkeleton.classList.add('hidden');
+      renderImageOptions(data);
+    })
+    .catch(err => {
+      console.error("Failed to load business images:", err);
+      if (loaderSkeleton) loaderSkeleton.classList.add('hidden');
+      if (sourceBadge) {
+        sourceBadge.textContent = "Error Loading Images";
+        sourceBadge.className = "badge";
+        sourceBadge.style.backgroundColor = "#fee2e2";
+        sourceBadge.style.color = "#ef4444";
+      }
+      renderImageOptions({
+        images: clientGenericFallback,
+        source: "fallback_categories",
+        status_message: "Using category-based images"
+      });
+    });
   }
 
-  // Resolves image URLs: returns { landscape: string, square: string }
-  function resolveMockupImageUrls() {
-    const key = getCampaignKeywords();
-    
-    // If it's a curated key, return direct Unsplash links
-    if (curatedStockImages[key]) {
-      return curatedStockImages[key];
+  function renderImageOptions(data) {
+    const optionsGrid = document.getElementById('image-options-grid');
+    const sourceBadge = document.getElementById('image-source-badge');
+
+    if (!optionsGrid) return;
+    optionsGrid.innerHTML = '';
+
+    if (sourceBadge) {
+      sourceBadge.textContent = data.status_message;
+      if (data.source === 'google_places' || data.source === 'brand_assets') {
+        sourceBadge.className = "badge";
+        sourceBadge.style.backgroundColor = "rgba(16, 185, 129, 0.1)"; // soft emerald green
+        sourceBadge.style.color = "#10b981";
+      } else {
+        sourceBadge.className = "badge badge-accent";
+        sourceBadge.style.backgroundColor = "";
+        sourceBadge.style.color = "";
+      }
     }
 
-    // Otherwise, build dynamic Lorem Flickr search URL
-    const queryTerm = encodeURIComponent(key);
-    return {
-      landscape: `https://loremflickr.com/600/400/${queryTerm}?lock=${Math.floor(Math.random() * 1000)}`,
-      square: `https://loremflickr.com/600/600/${queryTerm}?lock=${Math.floor(Math.random() * 1000)}`
-    };
+    if (!data.images || data.images.length === 0) {
+      optionsGrid.innerHTML = '<p style="font-size: 13px; color: var(--text-muted);">No images found.</p>';
+      return;
+    }
+
+    // Automatically select the first option
+    selectedImageUrl = data.images[0];
+    updateMockupImages(selectedImageUrl);
+
+    data.images.forEach((imgUrl, index) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `thumb-option ${index === 0 ? 'active' : ''}`;
+      btn.innerHTML = `<img src="${imgUrl}" alt="Option ${index + 1}">`;
+
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.thumb-option').forEach(el => el.classList.remove('active'));
+        btn.classList.add('active');
+        selectedImageUrl = imgUrl;
+        updateMockupImages(selectedImageUrl);
+        showToast(`Selected Image Option ${index + 1}`, 'info');
+      });
+
+      optionsGrid.appendChild(btn);
+    });
+  }
+
+  function updateMockupImages(url) {
+    const fbImg = document.getElementById('fb-mock-img');
+    const igImg = document.getElementById('ig-mock-img');
+    const liImg = document.getElementById('li-mock-img');
+    const fbPlaceholder = document.getElementById('fb-mock-placeholder');
+    const igPlaceholder = document.getElementById('ig-mock-placeholder');
+    const liPlaceholder = document.getElementById('li-mock-placeholder');
+
+    if (fbImg && fbPlaceholder) {
+      fbImg.classList.add('hidden');
+      fbPlaceholder.classList.remove('hidden');
+      fbImg.src = url;
+    }
+    if (igImg && igPlaceholder) {
+      igImg.classList.add('hidden');
+      igPlaceholder.classList.remove('hidden');
+      igImg.src = url;
+    }
+    if (liImg && liPlaceholder) {
+      liImg.classList.add('hidden');
+      liPlaceholder.classList.remove('hidden');
+      liImg.src = url;
+    }
   }
 
   // Setup onload and onerror handlers for preview images to toggle loading state
   function setupPreviewImageLoaders() {
     const platforms = ['fb', 'ig', 'li'];
-    
+
     platforms.forEach(platform => {
       const img = document.getElementById(`${platform}-mock-img`);
       const placeholder = document.getElementById(`${platform}-mock-placeholder`);
-      
+
       if (!img || !placeholder) return;
 
       img.onload = () => {
@@ -598,18 +751,13 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       img.onerror = () => {
-        // Fallback: If dynamic/Lorem Flickr fails, try our curated stock fallbacks or generic
         const currentSrc = img.src;
-        const key = getCampaignKeywords();
-        const fallbackObj = curatedStockImages[key] || curatedStockImages['generic'];
-        const isLandscape = (platform !== 'ig');
-        const fallbackUrl = isLandscape ? fallbackObj.landscape : fallbackObj.square;
+        const fallbackUrl = clientGenericFallback[0];
 
         if (currentSrc !== fallbackUrl) {
-          console.warn(`Failed to load ${platform} mockup image, falling back to:`, fallbackUrl);
+          console.warn(`Failed to load ${platform} mockup image, falling back to generic:`, fallbackUrl);
           img.src = fallbackUrl;
         } else {
-          // If fallback also fails, hide image and show the gradient placeholder
           console.error(`Fallback failed for ${platform} mockup image.`);
           img.classList.add('hidden');
           placeholder.classList.remove('hidden');
@@ -623,12 +771,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hide all platform containers
     updatePreviewPlatformVisibility(platform);
 
-    // Dynamic Image Fetching Setup
-    const imageUrls = resolveMockupImageUrls();
+    const activeImage = selectedImageUrl || clientGenericFallback[0];
     const fbImg = document.getElementById('fb-mock-img');
     const igImg = document.getElementById('ig-mock-img');
     const liImg = document.getElementById('li-mock-img');
-    
+
     const fbPlaceholder = document.getElementById('fb-mock-placeholder');
     const igPlaceholder = document.getElementById('ig-mock-placeholder');
     const liPlaceholder = document.getElementById('li-mock-placeholder');
@@ -638,29 +785,28 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('fb-mock-body').textContent = results.body;
       document.getElementById('fb-mock-headline').textContent = results.headline;
       document.getElementById('fb-mock-cta').textContent = results.cta;
-      
-      // Update image and show placeholder until it's loaded
+
       if (fbImg && fbPlaceholder) {
         fbImg.classList.add('hidden');
         fbPlaceholder.classList.remove('hidden');
-        fbImg.src = imageUrls.landscape;
+        fbImg.src = activeImage;
       }
     } 
-    
+
     else if (platform === 'Instagram') {
       document.getElementById('ig-mock-biz-name').textContent = formatInstagramUsername(bizName);
       document.getElementById('ig-mock-caption-name').textContent = formatInstagramUsername(bizName);
       document.getElementById('ig-mock-body').textContent = results.body;
       document.getElementById('ig-mock-headline').textContent = results.headline;
       document.getElementById('ig-mock-cta').textContent = results.cta;
-      
+
       if (igImg && igPlaceholder) {
         igImg.classList.add('hidden');
         igPlaceholder.classList.remove('hidden');
-        igImg.src = imageUrls.square;
+        igImg.src = activeImage;
       }
     } 
-    
+
     else if (platform === 'Google Ads') {
       const formattedDomain = `https://www.${formatDomainName(bizName)}.in/campaign`;
       document.getElementById('google-mock-url').textContent = formattedDomain;
@@ -668,18 +814,18 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('google-mock-body').textContent = results.body;
       document.getElementById('google-mock-cta').textContent = `➔ Call Action: ${results.cta}`;
     } 
-    
+
     else if (platform === 'LinkedIn') {
       document.getElementById('li-mock-biz-name').textContent = bizName || 'BizLeap Client';
       document.getElementById('li-mock-body').textContent = results.body;
       document.getElementById('li-mock-headline').textContent = results.headline;
       document.getElementById('li-mock-cta').textContent = results.cta;
       document.getElementById('li-mock-biz-domain').textContent = `${formatDomainName(bizName)}.in`;
-      
+
       if (liImg && liPlaceholder) {
         liImg.classList.add('hidden');
         liPlaceholder.classList.remove('hidden');
-        liImg.src = imageUrls.landscape;
+        liImg.src = activeImage;
       }
     }
   }
@@ -922,6 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
       headline: results.headline,
       body_text: results.body,
       cta: results.cta || "Learn More",
+      selected_image_url: selectedImageUrl || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
       mock_impressions,
       mock_ctr,
       mock_clicks,
@@ -1020,7 +1167,8 @@ document.addEventListener('DOMContentLoaded', () => {
           ad_tone: params.tone,
           headline: results.headline,
           body_text: results.body,
-          cta: results.cta
+          cta: results.cta,
+          selected_image_url: selectedImageUrl
         };
 
         fetch(`${API_BASE_URL}/api/history`, {
@@ -1116,6 +1264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const iconHtml = platformIcons[ad.ad_platform] || '<i data-lucide="globe"></i>';
+    const imageUrl = ad.selected_image_url || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80";
 
     return `
       <div class="card history-card" data-id="${ad.id}">
@@ -1134,6 +1283,11 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         
+        <!-- Display Saved Business Image -->
+        <div class="history-card-image">
+          <img src="${imageUrl}" alt="${ad.business_name}">
+        </div>
+
         <div class="history-card-meta">
           <span class="meta-tag"><i data-lucide="tag"></i> ${ad.industry_type}</span>
           <span class="meta-tag"><i data-lucide="target"></i> ${ad.campaign_goal}</span>

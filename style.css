@@ -2127,3 +2127,77 @@ textarea {
   background: linear-gradient(135deg, #dc2626, #b91c1c);
   transform: translateY(-1px);
 }
+
+/* --- Real Business Image Selector & History Preview Style --- */
+.image-options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.thumb-option {
+  width: 74px;
+  height: 74px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  transition: all var(--transition-fast);
+  background-color: var(--bg-main);
+  padding: 0;
+}
+
+.thumb-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb-option:hover {
+  transform: scale(1.05);
+  border-color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+}
+
+.thumb-option.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+  transform: scale(1.05);
+}
+
+/* Skeleton Loading Pulse Animation */
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.image-loader-skeleton .skeleton-thumb {
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+/* History Card Image Layout Styles */
+.history-card-image {
+  position: relative;
+  width: 100%;
+  height: 130px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-main);
+}
+
+.history-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-normal);
+}
+
+.history-card:hover .history-card-image img {
+  transform: scale(1.03);
+}

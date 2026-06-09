@@ -368,6 +368,34 @@
                 </div>
               </div>
 
+              <!-- Real Business Image Selector Section -->
+              <div class="card image-selector-card">
+                <div class="card-header">
+                  <div class="card-title-group">
+                    <i data-lucide="image" class="header-icon accent-color"></i>
+                    <h2>Select Ad Creative Image</h2>
+                  </div>
+                  <span class="badge" id="image-source-badge">No Image Loaded</span>
+                </div>
+                <div class="card-body-selector">
+                  <p class="selector-sub" style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Select a storefront, location, or brand photo to display in the live mockup previews below:</p>
+                  
+                  <!-- Thumbnail loading skeleton (shown during loading) -->
+                  <div class="image-loader-skeleton hidden" id="image-loader-skeleton" style="display: flex; gap: 12px; margin-top: 10px;">
+                    <div class="skeleton-thumb" style="width: 70px; height: 70px; background-color: var(--bg-main); border-radius: 8px; animation: pulse 1.5s infinite ease-in-out;"></div>
+                    <div class="skeleton-thumb" style="width: 70px; height: 70px; background-color: var(--bg-main); border-radius: 8px; animation: pulse 1.5s infinite ease-in-out;"></div>
+                    <div class="skeleton-thumb" style="width: 70px; height: 70px; background-color: var(--bg-main); border-radius: 8px; animation: pulse 1.5s infinite ease-in-out;"></div>
+                    <div class="skeleton-thumb" style="width: 70px; height: 70px; background-color: var(--bg-main); border-radius: 8px; animation: pulse 1.5s infinite ease-in-out;"></div>
+                    <div class="skeleton-thumb" style="width: 70px; height: 70px; background-color: var(--bg-main); border-radius: 8px; animation: pulse 1.5s infinite ease-in-out;"></div>
+                  </div>
+                  
+                  <!-- Thumbnail grid -->
+                  <div class="image-options-grid" id="image-options-grid">
+                    <!-- thumbnails injected dynamically -->
+                  </div>
+                </div>
+              </div>
+
               <!-- Interactive Platform Mockup Section -->
               <div class="card preview-card">
                 <div class="card-header">
