@@ -842,6 +842,39 @@ textarea {
   transition: all var(--transition-normal);
 }
 
+/* --- Mockup Image Previews --- */
+.mockup-image-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background-color: #e2e8f0;
+}
+
+.mockup-img {
+  width: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.mockup-img:not(.hidden) {
+  opacity: 1;
+}
+
+.fb-mockup .mockup-img {
+  height: 200px;
+}
+
+.ig-mockup .mockup-img {
+  aspect-ratio: 1 / 1;
+  height: 260px;
+}
+
+.li-mockup .mockup-img {
+  height: 180px;
+}
+
 /* 1. Facebook Post Style */
 .fb-mockup {
   border: 1px solid #e5e5e5;

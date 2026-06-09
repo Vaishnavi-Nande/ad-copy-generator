@@ -487,17 +487,164 @@ document.addEventListener('DOMContentLoaded', () => {
     ctaCount.textContent = ctaTextarea.value.length + " ch";
   }
 
+  // --- Dynamic Ad Preview Image Engine ---
+
+  // Mapped premium Unsplash stock images for Nagpur presets and common industries
+  const curatedStockImages = {
+    realestate: {
+      landscape: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&q=80",
+      square: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&h=600&q=80"
+    },
+    cafe: {
+      landscape: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=600&q=80",
+      square: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=600&h=600&q=80"
+    },
+    marketing: {
+      landscape: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&q=80",
+      square: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&h=600&q=80"
+    },
+    education: {
+      landscape: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+      square: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&h=600&q=80"
+    },
+    wellness: {
+      landscape: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80",
+      square: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&h=600&q=80"
+    },
+    retail: {
+      landscape: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80",
+      square: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&h=600&q=80"
+    },
+    generic: {
+      landscape: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+      square: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&h=600&q=80"
+    }
+  };
+
+  // Helper to extract clean query term from fields
+  function getCampaignKeywords() {
+    const biz = (businessNameInput.value || "").toLowerCase();
+    const ind = (industryTypeInput.value || "").toLowerCase();
+    const prod = (productNameInput.value || "").toLowerCase();
+    const text = `${biz} ${ind} ${prod}`;
+
+    if (text.includes('heights') || text.includes('real estate') || text.includes('apartment') || text.includes('flat') || text.includes('home') || text.includes('building') || text.includes('residency')) {
+      return 'realestate';
+    }
+    if (text.includes('bistro') || text.includes('cafe') || text.includes('coffee') || text.includes('food') || text.includes('restaurant') || text.includes('brunch') || text.includes('dining')) {
+      return 'cafe';
+    }
+    if (text.includes('seo') || text.includes('marketing') || text.includes('digital') || text.includes('it') || text.includes('software') || text.includes('agency')) {
+      return 'marketing';
+    }
+    if (text.includes('coaching') || text.includes('education') || text.includes('course') || text.includes('learn') || text.includes('class') || text.includes('school') || text.includes('academy')) {
+      return 'education';
+    }
+    if (text.includes('health') || text.includes('wellness') || text.includes('clinic') || text.includes('doctor') || text.includes('spa') || text.includes('yoga') || text.includes('salon')) {
+      return 'wellness';
+    }
+    if (text.includes('retail') || text.includes('ecommerce') || text.includes('shop') || text.includes('boutique') || text.includes('store') || text.includes('fashion')) {
+      return 'retail';
+    }
+
+    // Default to resolving word tokens from product/business
+    const cleanProd = prod.replace(/[^a-z0-9\s]/g, '').trim();
+    if (cleanProd) {
+      const tokens = cleanProd.split(/\s+/).filter(t => t.length > 2 && t !== 'and' && t !== 'the' && t !== 'for');
+      if (tokens.length > 0) {
+        return tokens.slice(0, 2).join(',');
+      }
+    }
+    
+    const cleanBiz = biz.replace(/[^a-z0-9\s]/g, '').trim();
+    if (cleanBiz) {
+      const tokens = cleanBiz.split(/\s+/).filter(t => t.length > 2);
+      if (tokens.length > 0) return tokens[0];
+    }
+
+    return 'business';
+  }
+
+  // Resolves image URLs: returns { landscape: string, square: string }
+  function resolveMockupImageUrls() {
+    const key = getCampaignKeywords();
+    
+    // If it's a curated key, return direct Unsplash links
+    if (curatedStockImages[key]) {
+      return curatedStockImages[key];
+    }
+
+    // Otherwise, build dynamic Lorem Flickr search URL
+    const queryTerm = encodeURIComponent(key);
+    return {
+      landscape: `https://loremflickr.com/600/400/${queryTerm}?lock=${Math.floor(Math.random() * 1000)}`,
+      square: `https://loremflickr.com/600/600/${queryTerm}?lock=${Math.floor(Math.random() * 1000)}`
+    };
+  }
+
+  // Setup onload and onerror handlers for preview images to toggle loading state
+  function setupPreviewImageLoaders() {
+    const platforms = ['fb', 'ig', 'li'];
+    
+    platforms.forEach(platform => {
+      const img = document.getElementById(`${platform}-mock-img`);
+      const placeholder = document.getElementById(`${platform}-mock-placeholder`);
+      
+      if (!img || !placeholder) return;
+
+      img.onload = () => {
+        img.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+      };
+
+      img.onerror = () => {
+        // Fallback: If dynamic/Lorem Flickr fails, try our curated stock fallbacks or generic
+        const currentSrc = img.src;
+        const key = getCampaignKeywords();
+        const fallbackObj = curatedStockImages[key] || curatedStockImages['generic'];
+        const isLandscape = (platform !== 'ig');
+        const fallbackUrl = isLandscape ? fallbackObj.landscape : fallbackObj.square;
+
+        if (currentSrc !== fallbackUrl) {
+          console.warn(`Failed to load ${platform} mockup image, falling back to:`, fallbackUrl);
+          img.src = fallbackUrl;
+        } else {
+          // If fallback also fails, hide image and show the gradient placeholder
+          console.error(`Fallback failed for ${platform} mockup image.`);
+          img.classList.add('hidden');
+          placeholder.classList.remove('hidden');
+        }
+      };
+    });
+  }
+
   // Update Preview Layout Inputs
   function updatePlatformMockupText(results, platform, bizName) {
     // Hide all platform containers
     updatePreviewPlatformVisibility(platform);
+
+    // Dynamic Image Fetching Setup
+    const imageUrls = resolveMockupImageUrls();
+    const fbImg = document.getElementById('fb-mock-img');
+    const igImg = document.getElementById('ig-mock-img');
+    const liImg = document.getElementById('li-mock-img');
+    
+    const fbPlaceholder = document.getElementById('fb-mock-placeholder');
+    const igPlaceholder = document.getElementById('ig-mock-placeholder');
+    const liPlaceholder = document.getElementById('li-mock-placeholder');
 
     if (platform === 'Facebook') {
       document.getElementById('fb-mock-biz-name').textContent = bizName || 'BizLeap Client';
       document.getElementById('fb-mock-body').textContent = results.body;
       document.getElementById('fb-mock-headline').textContent = results.headline;
       document.getElementById('fb-mock-cta').textContent = results.cta;
-      document.getElementById('fb-mock-img-text').textContent = `${bizName} Ad Graphic`;
+      
+      // Update image and show placeholder until it's loaded
+      if (fbImg && fbPlaceholder) {
+        fbImg.classList.add('hidden');
+        fbPlaceholder.classList.remove('hidden');
+        fbImg.src = imageUrls.landscape;
+      }
     } 
     
     else if (platform === 'Instagram') {
@@ -506,7 +653,12 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('ig-mock-body').textContent = results.body;
       document.getElementById('ig-mock-headline').textContent = results.headline;
       document.getElementById('ig-mock-cta').textContent = results.cta;
-      document.getElementById('ig-mock-img-text').textContent = `${bizName} Creative Grid`;
+      
+      if (igImg && igPlaceholder) {
+        igImg.classList.add('hidden');
+        igPlaceholder.classList.remove('hidden');
+        igImg.src = imageUrls.square;
+      }
     } 
     
     else if (platform === 'Google Ads') {
@@ -522,8 +674,13 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('li-mock-body').textContent = results.body;
       document.getElementById('li-mock-headline').textContent = results.headline;
       document.getElementById('li-mock-cta').textContent = results.cta;
-      document.getElementById('li-mock-img-text').textContent = `${bizName} B2B Creative Asset`;
       document.getElementById('li-mock-biz-domain').textContent = `${formatDomainName(bizName)}.in`;
+      
+      if (liImg && liPlaceholder) {
+        liImg.classList.add('hidden');
+        liPlaceholder.classList.remove('hidden');
+        liImg.src = imageUrls.landscape;
+      }
     }
   }
 
@@ -1263,4 +1420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   `;
   document.head.appendChild(styleEl);
+
+  // Initialize mockup image loaders
+  setupPreviewImageLoaders();
 });
