@@ -60,14 +60,22 @@ function getDb() {
   try {
     if (!fs.existsSync(DB_FILE)) {
       const initialSeeds = generateSeeds();
-      fs.writeFileSync(DB_FILE, JSON.stringify(initialSeeds, null, 2));
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(initialSeeds, null, 2));
+      } catch (writeErr) {
+        console.error("Database seeding write error (expected on serverless):", writeErr);
+      }
       return initialSeeds;
     }
     const data = fs.readFileSync(DB_FILE, 'utf8');
     const parsed = JSON.parse(data || '[]');
     if (parsed.length === 0) {
       const initialSeeds = generateSeeds();
-      fs.writeFileSync(DB_FILE, JSON.stringify(initialSeeds, null, 2));
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(initialSeeds, null, 2));
+      } catch (writeErr) {
+        console.error("Database seeding write error (expected on serverless):", writeErr);
+      }
       return initialSeeds;
     }
     return parsed;
@@ -81,7 +89,7 @@ function saveDb(data) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
   } catch (err) {
-    console.error("Database write error:", err);
+    console.error("Database write error (expected on serverless):", err);
   }
 }
 
@@ -537,6 +545,11 @@ app.get('/api/business-images', async (req, res) => {
     res.status(500).json({ error: "Failed to resolve business images: " + err.message });
   }
 });
-app.listen(PORT, () => {
-  console.log(`BizLeap AI Ad Copy Server running at http://localhost:${PORT}`);
-});
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`BizLeap AI Ad Copy Server running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

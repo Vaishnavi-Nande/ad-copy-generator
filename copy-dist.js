@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
+if (process.env.VERCEL) {
+  console.log("Running in Vercel environment. Skipping copying build files to root.");
+  process.exit(0);
+}
+
 function copyFolderSync(from, to) {
   if (!fs.existsSync(to)) {
     fs.mkdirSync(to, { recursive: true });

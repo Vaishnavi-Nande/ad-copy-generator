@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "vite",
-    "build": "node pre-build.js && vite build && node copy-dist.js"
+    "build": "node pre-build.js && npx vite build && node copy-dist.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
